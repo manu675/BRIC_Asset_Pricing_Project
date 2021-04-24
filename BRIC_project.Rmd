@@ -1,0 +1,81 @@
+---
+title: "BRIC_project"
+author: 
+  name: Manuel Schreiber
+output:
+  pdf_document: default
+  html_notebook: default
+  latex_engine: pdflatex
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    df_print: paged
+  header-includes:
+   - \usepackage{amsmath}
+   - \usepackage{amsfonts}
+---
+
+**BRIC Project**
+
+```{r}
+# clear workspace
+##rm(list=ls())
+```
+
+
+getting the current WD
+
+```{r}
+getwd()
+```
+
+changing the WD
+
+```{r}
+##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis")
+```
+
+# Loading Libraries
+
+```{r}
+# loading libraries
+library(data.table) # extension of the data.frame package. It is widely used for fast aggregation of large datasets, low latency add/update/remove of columns, quicker ordered joins, and a fast file reader.
+library(dplyr) # data manipulation package
+library(lubridate)
+library(zoo) # methods for totally ordered indexed observations. It aims at performing calculations containing irregular time series of numeric vectors, matrices & factors
+
+library(stats)
+
+```
+
+
+# Loading in the R.data
+
+```{r}
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_monthly.RData")
+
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_static.RData")
+
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_yearly.RData")
+```
+
+```{r}
+str(BRIC.monthly)
+```
+
+
+
+```{r}
+str(BRIC.static)
+```
+
+```{r}
+str(BRIC.yearly)
+
+head(BRIC.yearly)
+```
+
