@@ -33,7 +33,7 @@ getwd()
 changing the WD
 
 ```{r}
-##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis")
+setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
 ```
 
 # Loading Libraries
@@ -52,15 +52,19 @@ library(stats)
 
 # Loading in the R.data
 
+Data column descriptions (Worldscope):
+https://www.professors.wi.tum.de/fileadmin/w00bca/fm/Worldscope_Data_Definition_Guide_Issue_15.pdf
+
+
 ```{r}
 # loading R.data BRIC monthly
-load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_monthly.RData")
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_monthly.RData")
 
 # loading R.data BRIC monthly
-load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_static.RData")
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_static.RData")
 
 # loading R.data BRIC monthly
-load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC/BRIC_yearly.RData")
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_yearly.RData")
 ```
 
 ```{r}
@@ -77,5 +81,22 @@ str(BRIC.static)
 str(BRIC.yearly)
 
 head(BRIC.yearly)
+```
+
+*TO DO's*:
+
+- Calculate Benchmark (market-cap weighted big stocks of the BRIC region)
+- Calculate break points on big stocks
+- decide on strategy and implement it
+- calculate portfolio characteristics
+- visualize and showcase strategy performance
+- regress strategy PF on FF5FM and momentum for style exposure analysis
+
+
+```{r}
+# construct value-weighted market
+##VWM <-merge(Data_Excursus1[,-c("Date")],
+##                      BRIC.monthly,by="ym")
+
 ```
 
