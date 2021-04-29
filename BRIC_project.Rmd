@@ -83,6 +83,7 @@ str(BRIC.yearly)
 head(BRIC.yearly)
 ```
 
+
 *TO DO's*:
 
 - Calculate Benchmark (market-cap weighted big stocks of the BRIC region)
@@ -92,11 +93,68 @@ head(BRIC.yearly)
 - visualize and showcase strategy performance
 - regress strategy PF on FF5FM and momentum for style exposure analysis
 
+EDA
+
+
+```{r}
+summary(BRIC.monthly$ym)
+```
+
+
+```{r}
+# finding the number of NA values by column in the dataframe
+BRIC.monthly %>% mutate_all(is.na) %>% summarize_all(sum)
+
+```
+
+```{r}
+# finding the number of NA values by column in the dataframe
+BRIC.static %>% mutate_all(is.na) %>% summarize_all(sum)
+```
+
+
+```{r}
+# regular correlation matrix of all (four) numeric attributes
+cor(select(BRIC.static, where(is.numeric)))
+```
+
+
+```{r}
+# number of entries stocks per country
+tabulate(as.factor(BRIC.monthly$country));
+
+unique(BRIC.monthly$country)
+```
+
+```{r}
+# unqiue industries
+unique(BRIC.static$INDM)
+# Real Estate: Residential REITs, Retail RETS, Diversified REITS, Mortgage REITS, Specialty REITS, Ind. & Office REITS
+# Commodities: Iron & Steel, Commodity Chemicals, General Mining, Integrated Oil and Gas, Alternative Fuels, 
+# Infrastructure: Railroads, Transportation Services, Alternative Fuels, Alt. Electricity
+```
+
+```{r}
+# cross tab plot of ownership interest and certain features with legend
+# cex.names: expansion factor for the axis labels
+barplot(with(BRIC.static, table(INDM)), beside = TRUE, legend.text = TRUE, main = "Crosstab", cex.names = 0.4)
+
+```
+
+
+```{r}
+# Market Cap values
+summary(BRIC.monthly$MV.USD)
+summary(BRIC.monthly$RET.USD)
+
+```
+
+
 
 ```{r}
 # construct value-weighted market
-##VWM <-merge(Data_Excursus1[,-c("Date")],
-##                      BRIC.monthly,by="ym")
+VWM <-merge(Data_Excursus1[,-c("Date")],
+                      BRIC.monthly,by="ym")
 
 ```
 
