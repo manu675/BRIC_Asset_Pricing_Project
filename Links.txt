@@ -1,0 +1,5 @@
+# Market capitalization of listed domestic companies (current US$)
+https://data.worldbank.org/indicator/CM.MKT.LCAP.CD?end=2017&locations=IN-1W-CN-RU-BR&start=1980
+
+# GDP (current US$)
+https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?end=2017&locations=IN-CN-RU-BR&start=1981
