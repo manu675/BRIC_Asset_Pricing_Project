@@ -3,14 +3,14 @@ title: "BRIC_project"
 author: 
   name: Manuel Schreiber
 output:
-  pdf_document: default
-  html_notebook: default
-  latex_engine: pdflatex
   html_document:
     toc: true
     toc_float: true
     theme: united
     df_print: paged
+  html_notebook: default
+  latex_engine: pdflatex
+  pdf_document: default
   header-includes:
    - \usepackage{amsmath}
    - \usepackage{amsfonts}
@@ -46,6 +46,7 @@ library(lubridate)
 library(zoo) # methods for totally ordered indexed observations. It aims at performing calculations containing irregular time series of numeric vectors, matrices & factors
 
 library(stats)
+library(utils)
 
 ```
 
@@ -54,6 +55,9 @@ library(stats)
 
 Data column descriptions (Worldscope):
 https://www.professors.wi.tum.de/fileadmin/w00bca/fm/Worldscope_Data_Definition_Guide_Issue_15.pdf
+
+https://docs.google.com/spreadsheets/d/1YtuJiv60Q6nKIaFJLQY60sGQErbsl_8nvPdUHmvO8vM/edit?usp=sharing
+
 
 
 ```{r}
@@ -71,16 +75,65 @@ load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pr
 str(BRIC.monthly)
 ```
 
+# Importing the Risk free Rate Data
+
+download T-bill data from Kenneth French Website for the risk free rate
+
+```{r}
+# import the Kenneth/French risk free rate (1month T-bill rate)
+kf_data <- read.csv("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/F_F_Research_Data_Factors.csv")
+
+kf_data
+
+# extracting the risk free rate
+one_m_tbill <- kf_data$RF
+
+
+tail(kf_data)
+
+```
+
+
+
+```{r}
+# summary stats
+summary(BRIC.monthly)
+```
+
 
 
 ```{r}
 str(BRIC.static)
 ```
 
+ISIN: International Security Identification Number (stock identifier)
+ESTAT: active vs inactive company (publicly listed or not)
+Id: join column with BRIC.yearly dataframe
+INDM: industry sector code
+
+GEOGN: geographic group name
+GEOLN: geographic location
+
+List of Database codes:
+https://www.bwl.uni-mannheim.de/media/Lehrstuehle/bwl/Maug/Database_info/Datastream_dataypes.pdf
+
 ```{r}
 str(BRIC.yearly)
 
 head(BRIC.yearly)
+```
+
+ID: ??
+Country: 4 BRIC COUNTRY CODES
+ICBSUC: industrial classification benchmark
+https://link.springer.com/content/pdf/bbm%3A978-3-8350-9531-1%2F1.pdf
+
+WC07021: SIC(standard industrial classification) primary code from Worldscope
+W05651: Common Shares Traded - Annual (Security)
+
+
+```{r}
+summary(BRIC.yearly)
 ```
 
 
@@ -92,6 +145,16 @@ head(BRIC.yearly)
 - calculate portfolio characteristics
 - visualize and showcase strategy performance
 - regress strategy PF on FF5FM and momentum for style exposure analysis
+- Literature 
+
+
+*Project Dates*:
+Thesis submission: June 21
+Final presentation: June 07
+
+*Strategy*:
+GDP weighted countries; stock level: max sharpe ratio, min volatility, equal sector weights or quotas
+
 
 EDA
 
@@ -113,6 +176,8 @@ BRIC.static %>% mutate_all(is.na) %>% summarize_all(sum)
 ```
 
 
+To DO: compute correlations by sector (10 sectors)
+
 ```{r}
 # regular correlation matrix of all (four) numeric attributes
 cor(select(BRIC.static, where(is.numeric)))
@@ -124,6 +189,8 @@ cor(select(BRIC.static, where(is.numeric)))
 tabulate(as.factor(BRIC.monthly$country));
 
 unique(BRIC.monthly$country)
+
+#weight CHN 
 ```
 
 ```{r}
@@ -142,6 +209,7 @@ barplot(with(BRIC.static, table(INDM)), beside = TRUE, legend.text = TRUE, main 
 ```
 
 
+
 ```{r}
 # Market Cap values
 summary(BRIC.monthly$MV.USD)
@@ -153,8 +221,72 @@ summary(BRIC.monthly$RET.USD)
 
 ```{r}
 # construct value-weighted market
-VWM <-merge(Data_Excursus1[,-c("Date")],
-                      BRIC.monthly,by="ym")
+##VWM <-merge(Data_Excursus1[,-c("Date")],
+##                      BRIC.monthly,by="ym")
 
 ```
+
+**Some conventions:**
+
+Characteristic should be calculated as in Hanauer & Lauterbach (2019) or in Hanauer (2020)
+
+Big stocks should be defined as the biggest stocks which together account for 90% of a
+country's aggregated market capitalization
+Benchmark should be defined as the cap-weighted universe of big stocks
+Returns should be in USD
+Breakpoints (for Fama-French factors) should be calculated on big stocks (as in the
+excursus) but both small and big stocks go into the factor calculation.
+
+# Benchmark Calculation
+
+```{r}
+length(BRIC.static$Id)
+
+length(BRIC.yearly$Id)
+
+```
+
+```{r}
+# joining the yearly and the static dataframe by the Id column (retainig all rows of BRIC.yearly)
+df_combined <- left_join(x=BRIC.yearly,y=BRIC.static,by="Id")
+
+head(df_combined)
+
+```
+
+
+```{r}
+dim(df_combined)
+
+dim(BRIC.yearly)
+
+dim(BRIC.static)
+```
+
+
+```{r}
+# markt cap (USD): WC07210
+
+## finding the number of NA values by column in the dataframe
+df_combined %>% mutate_all(is.na) %>% summarize_all(sum)
+```
+
+
+```{r}
+## finding the number of NA values by column in the dataframe
+BRIC.yearly %>% mutate_all(is.na) %>% summarize_all(sum)
+```
+
+Idea: calculate 90% of the sum of all stock market caps per country as a time series
+(store the result in a column )
+
+```{r}
+# total market cap for the BRIC region
+
+
+```
+
+
+
+
 
