@@ -33,7 +33,7 @@ getwd()
 changing the WD
 
 ```{r}
-setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
+##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
 ```
 
 # Loading Libraries
@@ -153,7 +153,7 @@ Thesis submission: June 21
 Final presentation: June 07
 
 *Strategy*:
-GDP weighted countries; stock level: max sharpe ratio, min volatility, equal sector weights or quotas
+GDP weighted countries; stock level: max sharpe ratio, min volatility, equal sector weights or quotas, momentum?
 
 
 EDA
@@ -219,13 +219,6 @@ summary(BRIC.monthly$RET.USD)
 
 
 
-```{r}
-# construct value-weighted market
-##VWM <-merge(Data_Excursus1[,-c("Date")],
-##                      BRIC.monthly,by="ym")
-
-```
-
 **Some conventions:**
 
 Characteristic should be calculated as in Hanauer & Lauterbach (2019) or in Hanauer (2020)
@@ -247,11 +240,18 @@ length(BRIC.yearly$Id)
 ```
 
 ```{r}
-# joining the yearly and the static dataframe by the Id column (retainig all rows of BRIC.yearly)
-df_combined <- left_join(x=BRIC.yearly,y=BRIC.static,by="Id")
+# joining the monthly and the static dataframe by the Id column (retainig all rows of BRIC.yearly)
+df_combined <- left_join(x=BRIC.monthly,y=BRIC.static,by="Id")
+
 
 head(df_combined)
 
+
+
+```
+
+```{r}
+summary(df_combined$MV.USD)
 ```
 
 
@@ -261,7 +261,15 @@ dim(df_combined)
 dim(BRIC.yearly)
 
 dim(BRIC.static)
+
+dim(BRIC.monthly)
 ```
+
+```{r}
+## finding the number of NA values by column in the dataframe
+BRIC.yearly %>% mutate_all(is.na) %>% summarize_all(sum)
+```
+
 
 
 ```{r}
@@ -272,20 +280,142 @@ df_combined %>% mutate_all(is.na) %>% summarize_all(sum)
 ```
 
 
-```{r}
-## finding the number of NA values by column in the dataframe
-BRIC.yearly %>% mutate_all(is.na) %>% summarize_all(sum)
-```
+
 
 Idea: calculate 90% of the sum of all stock market caps per country as a time series
 (store the result in a column )
 
 ```{r}
-# total market cap for the BRIC region
+# Big stocks should be defined as the biggest stocks which together account for 90% of # a country's aggregated market capitalization
+
+
+# grouping the mcap values of individual stocks by country
+mcap_country <- df_combined %>%
+  filter(df_combined$MV.USD != "NA") %>% 
+  group_by(country.x, ym) 
+
+# computing the sum of the individual stock's market caps by country
+country_mcap <- mcap_country %>%
+group_by(country.x, ym) %>%
+    summarize(mc_sum = sum(MV.USD))
+
+country_mcap
 
 
 ```
 
+
+```{r}
+# sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
+
+# RUSSIA
+# 90% of the market cap in Russia: 
+0.9*country_mcap$mc_sum[4]
+
+# subsetting all Russian stocks
+russian_stocks <- as.data.frame(mcap_country) %>%
+   filter(country.x == "RUS") 
+
+# sorting the dataframe of russian stocks by decreasing market cap
+russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
+ 
+# filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
+big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
+
+big_stocks_RUS
+
+
+
+  
+```
+
+
+idea:
+
+big_stocks <- mcap_country %>%
+  select(ISIN) %>%
+ sort(mcap_country$WC07210, decreasing=T)  %>%
+  filter(mcap_country$WC07210 <= 0.9*country_mcap$mc_sum)
+
+big_stocks
+
+```{r}
+# sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
+
+# RUSSIA
+# 90% of the market cap in Russia: 
+0.9*country_mcap$mc_sum[4]
+
+# subsetting all Russian stocks
+russian_stocks <- as.data.frame(mcap_country) %>%
+   filter(country.x == "RUS") 
+
+# sorting the dataframe of russian stocks by decreasing market cap
+russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
+ 
+# filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
+big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
+
+big_stocks_RUS
+
+
+
+  
+```
+
+
+```{r}
+### Attempt ###
+
+
+## Determine portfolio breakpoints for Size
+# Fama-French take the MV from end-of-June and rebalance yearly
+df_combined[,month := month(Date)]
+df_combined[,year := year(Date)]
+df_combined[,hcjun := ifelse(month>=7,year,year-1)]
+
+# determine size portfolio allocation from July on using data that's public from end-of-June on
+setorder(df_combined,Date,-MV.USD)
+hlpvariable <-  df_combined[month==7 & !is.na(MV.USD),
+                .(pf.size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
+                               by=year]
+
+# Merge the size portfolio allocation back from July Y to June Y+1
+panel_country <- merge(df_combined,hlpvariable,
+                       by.x=c("hcjun","Id"),
+                       by.y=c("year","Id"),
+                       all.x=T)
+
+panel_country
+
+
+
+### Attempt end ###
+```
+
+
+
+
+
+
+# Calculating the return of the market portfolio
+
+```{r}
+summary(BRIC.monthly$MV.USD)
+
+summary(BRIC.monthly$RET.USD)
+
+# market beta regression
+my.ols <- lm(data=BRIC.monthly, formula = RET.USD ~ MV.USD)
+
+summary(my.ols)
+  
+# isolate beta
+my.beta <- coef(my.ols)[2]
+
+my.beta
+
+```
 
 
 
