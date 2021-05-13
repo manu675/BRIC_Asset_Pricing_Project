@@ -304,6 +304,13 @@ country_mcap
 
 ```
 
+```{r}
+summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
+summary(country_mcap$mc_sum[country_mcap$country.x == "RUS"])
+summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
+summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
+```
+
 
 ```{r}
 # sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
@@ -326,7 +333,6 @@ big_stocks_RUS
 
 
 
-  
 ```
 
 
@@ -398,7 +404,7 @@ panel_country
 
 
 
-# Calculating the return of the market portfolio
+# Calculating the excess return of the market portfolio (RMRF)
 
 ```{r}
 summary(BRIC.monthly$MV.USD)
@@ -416,6 +422,9 @@ my.beta <- coef(my.ols)[2]
 my.beta
 
 ```
+
+
+# Calculating the size portfolios
 
 
 
