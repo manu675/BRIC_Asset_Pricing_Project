@@ -311,6 +311,88 @@ summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
 summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
 ```
 
+# FF5FM Calulation new
+
+```{r}
+# import csv
+library(readr)
+FFData <- read_csv("FF_Research_Data_5_Factors_2x3.CSV", 
+     skip = 2)
+
+
+# adding a ym column to risk free rate data
+one_m_tbill <- as.data.frame(FFData[c("X1","RF")][1:693,])
+
+one_m_tbill$ym<-as.yearmon(one_m_tbill$X1, "%Y %m")
+
+
+# merge risk-free rate (1 month treasury bill rate) with monthly data
+BRIC.monthly_new <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
+
+# remove NAs from our data
+## NOTE: Problem with data where there's other data but not ret.usd data --> Confirm with Hanauer and Windmüller
+
+BRIC.monthly_neww <- na.omit(BRIC.monthly_new)
+
+# make rf column numeric
+BRIC.monthly_neww$RF <- as.numeric(BRIC.monthly_neww$RF)
+
+```
+
+# calculate RMRF
+
+```{r}
+BRIC.monthly_neww$RMRF <- BRIC.monthly_neww$RET.USD - BRIC.monthly_neww$RF
+```
+
+# Calculate SMB
+comment: na values appear for size calculation, which differs from what in the excursus
+note: we omitted the na's for further calculation --> has to be clarified in the Q&A session with Hanauer
+
+```{r}
+## Determine portfolio breakpoints for Size
+# Fama-French take the MV from end-of-June and rebalance yearly
+BRIC.monthly_neww[,month := month(Date)]
+BRIC.monthly_neww[,year := year(Date)]
+BRIC.monthly_neww[,hcjun := ifelse(month>=7,year,year-1)]
+
+# determine size portfolio allocation from July on using data that's public from end-of-June on
+setorder(BRIC.monthly_neww,Date,-MV.USD)
+hlpvariable <-  BRIC.monthly_neww[month==7 & !is.na(MV.USD),
+                .(Size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
+                               by=year]
+
+# Merge the size portfolio allocation back from July Y to June Y+1
+panel_country <- merge(BRIC.monthly_neww,hlpvariable,
+                       by.x=c("hcjun","Id"),
+                       by.y=c("year","Id"),
+                       all.x=T)
+
+panel_country_noNA <- na.omit(SMB_Calculation) 
+
+# to do: 
+# merge yearly BM data with our table
+BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210") )
+BRIC.yearly_helper$BM <- BRIC.yearly_helper$WC03501 / BRIC.yearly_helper$WC07210
+
+summary(BRIC.yearly_helper$BM)
+
+panel_country_BM <- left_join(x = panel_country_noNA,y = BRIC.yearly, by = "Id")
+
+
+# Determine the B/M breakpoints based on big stocks only
+hlpvariable2 <- panel_country[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
+                                                                        bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
+              
+# Merge the B/M portfolio allocation back from July Y to June Y+1
+panel_country <- merge(panel_country,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+ 
+```
+ 
 
 ```{r}
 # sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
@@ -399,29 +481,6 @@ panel_country
 ### Attempt end ###
 ```
 
-
-
-
-
-
-# Calculating the excess return of the market portfolio (RMRF)
-
-```{r}
-summary(BRIC.monthly$MV.USD)
-
-summary(BRIC.monthly$RET.USD)
-
-# market beta regression
-my.ols <- lm(data=BRIC.monthly, formula = RET.USD ~ MV.USD)
-
-summary(my.ols)
-  
-# isolate beta
-my.beta <- coef(my.ols)[2]
-
-my.beta
-
-```
 
 
 # Calculating the size portfolios
