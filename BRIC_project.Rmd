@@ -72,15 +72,18 @@ load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_static.RData")
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_yearly.RData")
 
 ```
-# Clearing data from dates before July 1994
+# Clearing data from dates before July 1994 and NA s in RET.USD
 
 ```{r}
 # save raw data and adjust others to the required date range
 BRIC.monthly.raw <- BRIC.monthly
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2019-01-01")
+BRIC.monthly <- na.omit(BRIC.monthly,cols = "RET.USD")
 
 BRIC.yearly.raw <- BRIC.yearly
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
+
+
 ```
 
 ISIN: International Security Identification Number (stock identifier)
@@ -235,22 +238,17 @@ one_m_tbill <- as.data.frame(FFData[c("X1","RF")][1:693,])
 one_m_tbill$ym<-as.yearmon(one_m_tbill$X1, "%Y %m")
 
 # merge risk-free rate (1 month treasury bill rate) with monthly data
-BRIC.monthly_new <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
-
-# remove NAs from our data
-## NOTE: Problem with data where there's other data but not ret.usd data --> Confirm with Hanauer and Windmüller
-
-BRIC.monthly_neww <- na.omit(BRIC.monthly_new)
+BRIC.monthly_full <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
 
 # make rf column numeric
-BRIC.monthly_neww$RF <- as.numeric(BRIC.monthly_neww$RF)
+BRIC.monthly_full$RF <- as.numeric(BRIC.monthly_full$RF)
 
 ```
 
 # calculate RMRF
 
 ```{r}
-BRIC.monthly_neww$RMRF <- BRIC.monthly_neww$RET.USD - BRIC.monthly_neww$RF
+BRIC.monthly_full$RMRF <- BRIC.monthly_full$RET.USD - BRIC.monthly_full$RF
 ```
 
 # Calculate SMB and HML
@@ -262,21 +260,21 @@ we didn't calculate the lagged MV yet lines 271,315
 ```{r}
 ## Determine portfolio breakpoints for Size
 # Fama-French take the MV from end-of-June and rebalance yearly
-BRIC.monthly_neww[,month := month(Date)]
-BRIC.monthly_neww[,year := year(Date)]
-BRIC.monthly_neww[,hcjun := ifelse(month>=7,year,year-1)]
+BRIC.monthly_full[,month := month(Date)]
+BRIC.monthly_full[,year := year(Date)]
+BRIC.monthly_full[,hcjun := ifelse(month>=7,year,year-1)]
 
 # determine size portfolio allocation from July on using data that's public from end-of-June on
 
 # we didn't calculate the lagged MV yet 
 
-setorder(BRIC.monthly_neww,Date,-MV.USD)
-hlpvariable <-  BRIC.monthly_neww[month==7 & !is.na(MV.USD),
+setorder(BRIC.monthly_full,Date,-MV.USD)
+hlpvariable <-  BRIC.monthly_full[month==7 & !is.na(MV.USD),
                 .(Size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
                                by=year]
 
 # Merge the size portfolio allocation back from July Y to June Y+1
-panel_country <- merge(BRIC.monthly_neww,hlpvariable,
+panel_country <- merge(BRIC.monthly_full,hlpvariable,
                        by.x=c("hcjun","Id"),
                        by.y=c("year","Id"),
                        all.x=T)
@@ -284,7 +282,7 @@ panel_country <- merge(BRIC.monthly_neww,hlpvariable,
 panel_country_noNA <- na.omit(panel_country,cols = "Size") 
 
 # merge yearly BM data with our table
-BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210") )
+BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210","WC01001","WC01051","WC01101","WC01251","WC02999") )
 BRIC.yearly_helper$BM <- BRIC.yearly_helper$WC03501 / BRIC.yearly_helper$WC07210
 
 # delete NA s from BM column
@@ -334,6 +332,56 @@ head(portfolio_returns)
  
 ```
  
+# RMW
+profitability: OP/BE: Operating profits-to-book equity. We measure operating profits-to-book equity as in Fama and French (2015) as sales or revenues (WC01001) minus cost of goods sold (WC01051), minus selling, general, and administrative expenses (WC01101), minus interest expense (WC01251); all divided by book equity. (Hanauer, 2019, p. 284)
+```{r}
+# use BRIC.yearly_helper
+
+
+
+```
+
+
+
+
+
+# CMA
+investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
+```{r}
+# use BRIC.yearly_helper
+
+
+
+```
+
+# Strategy
+
+
+```{r}
+#install.packages("plm")
+library(plm)
+
+strategy_df <- pdata.frame(BRIC.monthly,index = c("Id","ym"))
+#strategy_df <- transform(strategy_df,l_value=lag(value,1))
+
+#for(i in 1:length(strategy_df$Id)){
+#  sd(strategy_df$RET.USD)
+#strategy_df$std_value <- 
+#}
+
+sd.y <- as.numeric()
+for(i in 1:10){
+  sd.y[i] <- sd(strategy_df$RET.USD[i])
+}
+sd.y
+# [1] 0.9681038 0.3783425 1.1031686 1.1799477 0.6867556 1.6987277 
+# [7] 1.8859794 1.4993717 1.2956209 1.1116502
+
+ag <- aggregate(. ~ Id, strategy_df, function(x) c(mean = mean(x), sd = sd(x)))
+
+```
+
+
 
 ```{r}
 # sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
