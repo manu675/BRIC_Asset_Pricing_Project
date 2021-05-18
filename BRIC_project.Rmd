@@ -360,26 +360,22 @@ investment: As in Cooper et al. (2008), we measure asset growth in June of year 
 ```{r}
 #install.packages("plm")
 library(plm)
+library(dplyr)
 
 strategy_df <- pdata.frame(BRIC.monthly,index = c("Id","ym"))
-#strategy_df <- transform(strategy_df,l_value=lag(value,1))
 
-#for(i in 1:length(strategy_df$Id)){
-#  sd(strategy_df$RET.USD)
-#strategy_df$std_value <- 
-#}
+# calculate sd of return by ym
+sd_help <- subset(BRIC.monthly,select = c("Id","ym","RET.USD"))
+sd_help <- na.omit(sd_help,cols = RET.USD) # may be deleted, if redundant
 
-sd.y <- as.numeric()
-for(i in 1:10){
-  sd.y[i] <- sd(strategy_df$RET.USD[i])
-}
-sd.y
-# [1] 0.9681038 0.3783425 1.1031686 1.1799477 0.6867556 1.6987277 
-# [7] 1.8859794 1.4993717 1.2956209 1.1116502
+# monthly basis
+number_of_stocks <- aggregate(.~ ym, data = sd_help,FUN = NROW) # alternative: sd_help %>% count(ym)
+mean_return <- aggregate(.~ ym, data = sd_help,FUN = mean)
 
-ag <- aggregate(. ~ Id, strategy_df, function(x) c(mean = mean(x), sd = sd(x)))
+plot(sd_ret$ym,sd_ret$RET.USD)
+plot(mean_ret$ym,mean_ret$RET.USD)
 
-# jjs
+# yearly basis
 
 ```
 
