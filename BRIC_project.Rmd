@@ -362,7 +362,9 @@ investment: As in Cooper et al. (2008), we measure asset growth in June of year 
 library(plm)
 library(dplyr)
 
-strategy_df <- pdata.frame(BRIC.monthly,index = c("Id","ym"))
+#strategy_df <- pdata.frame(BRIC.monthly,index = c("Id","ym"))
+
+### time series calculation pending
 
 # calculate sd of return by ym
 sd_help <- subset(BRIC.monthly,select = c("Id","ym","RET.USD"))
@@ -370,10 +372,35 @@ sd_help <- na.omit(sd_help,cols = RET.USD) # may be deleted, if redundant
 
 # monthly basis
 number_of_stocks <- aggregate(.~ ym, data = sd_help,FUN = NROW) # alternative: sd_help %>% count(ym)
-mean_return <- aggregate(.~ ym, data = sd_help,FUN = mean)
+mean_return <- aggregate(RET.USD ~ ym, data = sd_help,FUN = mean)
+sd_return <- aggregate(RET.USD ~ ym, data = sd_help, FUN = sd)
+var_return <- aggregate(RET.USD ~ ym, data = sd_help, FUN = var)
 
-plot(sd_ret$ym,sd_ret$RET.USD)
-plot(mean_ret$ym,mean_ret$RET.USD)
+dummy <- sd_help %>%
+  group_by(ym) %>%
+  summarize(mean(RET.USD),median(RET.USD),NROW(Id),sd(RET.USD),var(RET.USD))
+  colnames(dummy) <- c("ym","Mean","Median","n","sd","var")
+
+df1 <- inner_join(sd_help,dummy,by="ym")
+
+# sample variance
+df1$potOfRetMinμ <- ((df1$RET.USD - df1$Mean)^2)
+
+df2 <- df1 %>%
+  group_by(ym) %>%
+  summarize(sum(potOfRetMinμ))
+
+df3 <- inner_join(dummy,df2,by="ym")
+
+colnames(df3) <- c("ym","Mean","Median","n","sd","var","SumPotOfRetMinμ")
+
+df3$var_OtherCalc <- (1/(df3$n-1))*(df3$SumPotOfRetMinμ)
+df3$sd_OtherCalc <- sqrt(df3$var_OtherCalc)
+
+df4 <- inner_join(sd_help,df3,by = "ym")
+df4$Covariance <- (1/(df4$n-1))*(df4$SumPotOfRetMinμ)
+
+plot(mean_return$ym,mean_return$RET.USD)
 
 # yearly basis
 
