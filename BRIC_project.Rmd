@@ -48,6 +48,7 @@ library(zoo) # methods for totally ordered indexed observations. It aims at perf
 library(stats)
 library(utils)
 library(tidyverse)
+library(readr)
 
 ```
 
@@ -74,6 +75,8 @@ load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_yearly.RData")
 ```
 # Data preparation
 
+## 1 Save raw data and adjust date range
+
 ```{r}
 #0 save raw data
 BRIC.monthly.raw <- BRIC.monthly
@@ -86,34 +89,170 @@ BRIC.yearly.withNA <- subset(BRIC.yearly.raw, YEAR >= "1994" & YEAR <= "2019")
 #1.2 working dataframe
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2019-01-01")
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
+```
 
-#2 delete na's
-#2.1 monthly data
+## 2 BRIC.monthly data preparation
+```{r}
+#delete na's, set 0 and calculate important values
 # no RET.USD data, no MV or no MV.USD
 BRIC.monthly <- BRIC.monthly %>%
   drop_na(RET.USD,MV,MV.USD)
+```
 
-#2.2 yearly data
-# no WC03501 (Common equity)
+## 3 BRIC.yearly data preparation and value calculation
+```{r}
+#3.1 book value / equity and related
+# delete rows with no WC03501 (Common equity)
 BRIC.yearly <- BRIC.yearly %>%
   drop_na(WC03501)
 # set WC03263 (deferred taxes) zero if NA
 BRIC.yearly$WC03263 <- BRIC.yearly$WC03263 %>% replace_na(0)
-
-#3 delete values with negative book value
 # add column for BookValue (Hanauer 2020 calculation)
 BRIC.yearly$BookValue <- BRIC.yearly$WC03501 + BRIC.yearly$WC03263
-# negative BookValue
+# delete rows with negative BookValue
 BRIC.yearly <- BRIC.yearly[BRIC.yearly$BookValue >= 0,]
 
-#4 minimise BRIC.yearly to columns needed
-#we keep: Id, country, ICBSUC, YEAR, BookValue and some other factors
+#3.2 total assets
+# delete rows with no WC02999 (total assets)
+BRIC.yearly <- BRIC.yearly %>%
+  drop_na(WC02999)
+
+#3.3 operating profits
+# "To have a valid value, at least one of cost components cost of goods sold, selling, general and administrative expenses, or interest expense must be non-missing." (Hanauer, 2019, p. 284) --> if one of these values is missing, we must delete these rows WC01001,WC01051,WC01101,WC01251
+# delete rows where ALL 4 columns are NA
+BRIC.yearly <- filter(BRIC.yearly,!is.na(WC01001) | !is.na(WC01051) | !is.na(WC01101) | !is.na(WC01251))
+# replace all na's in this 4 columns with 0
+BRIC.yearly$WC01001 <- BRIC.yearly$WC01001 %>% replace_na(0)
+BRIC.yearly$WC01051 <- BRIC.yearly$WC01051 %>% replace_na(0)
+BRIC.yearly$WC01101 <- BRIC.yearly$WC01101 %>% replace_na(0)
+BRIC.yearly$WC01251 <- BRIC.yearly$WC01251 %>% replace_na(0)
+# calculate operating profits (Hanauer, 2019, p.284)
+BRIC.yearly$OperatingProfits <- (BRIC.yearly$WC01001 - BRIC.yearly$WC01051 - BRIC.yearly$WC01101 - BRIC.yearly$WC01251)
+```
+
+!!!!Note: If we remove less columns in our data sheet we can add them back here without any problem!!!!
+## 4 minimise BRIC.yearly and BRIC.monthly to columns needed
+
+```{r}
+# for BRIC.yearly we keep: Id, country, ICBSUC, YEAR, BookValue, OperatingProfits and total assets
 # Note: WC07201 is not used, as our MV should be the MV from the monthly data for 06.y !
-BRIC.yearly <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","WC03501","WC01001","WC01051","WC01101","WC01251","WC02999","WC03263") )
+BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","OperatingProfits","WC02999"))
+# last we rename WC02999 to total assets
+colnames(BRIC.yearly)[7] <- "TotalAssets"
+
+# for BRIC.monthly we keep: 
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","RET","RET.USD","ym"))
+```
+
+# 5 FF5FM Calculation
+## 5.1 Adding the 1-m treasury rate to the monthly data
+```{r}
+# load data sheet from French's website
+FFData <- read_csv("FF_Research_Data_5_Factors_2x3.CSV", 
+     skip = 2)
+# shorting data frame
+one_m_tbill <- as.data.frame(FFData[c("X1","RF")][1:693,])
+# adding a ym column to risk free rate data
+one_m_tbill$ym<-as.yearmon(one_m_tbill$X1, "%Y %m")
+#delete X1 column 
+one_m_tbill <- subset(one_m_tbill,select = c("ym","RF"))
+# merge risk-free rate (1 month treasury bill rate) with monthly data
+BRIC.monthly <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
+
+# make rf column numeric
+BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
+
+```
+
+## 5.2 Calculate RMRF
+```{r}
+BRIC.monthly$RMRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
+```
+
+## ---- INTERMEDIATE ---- create "working copys" of BRIC.monthly and BRIC.yearly // may be deleted later
+```{r}
+BRIC.monthly.df <- BRIC.monthly
+BRIC.yearly.df <- BRIC.yearly
+```
+
+## 5.3 Calculate SMB and HML
+comment: na values appear for size calculation, which differs from what in the excursus
+note: we omitted the na's for further calculation --> has to be clarified in the Q&A session with Hanauer
+we didn't calculate the lagged MV yet lines 271,315
+```{r}
+## Determine portfolio breakpoints for Size
+# Fama-French take the MV from end-of-June and rebalance yearly
+BRIC.monthly.df[,month := month(Date)]
+BRIC.monthly.df[,year := year(Date)]
+BRIC.monthly.df[,hcjun := ifelse(month>=7,year,year-1)]
+
+# determine size portfolio allocation from July on using data that's public from end-of-June on
+
+# we didn't calculate the lagged MV yet 
+
+setorder(BRIC.monthly.df,Date,-MV.USD)
+hlpvariable <-  BRIC.monthly.df[month==7 & !is.na(MV.USD),
+                .(Size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
+                               by=year]
+
+# Merge the size portfolio allocation back from July Y to June Y+1
+panel_country <- merge(BRIC.monthly.df,hlpvariable,
+                       by.x=c("hcjun","Id"),
+                       by.y=c("year","Id"),
+                       all.x=T)
+
+panel_country_noNA <- na.omit(panel_country,cols = "Size") 
+
+# merge yearly BM data with our table
+BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210","WC01001","WC01051","WC01101","WC01251","WC02999") )
+BRIC.yearly_helper$BM <- BRIC.yearly_helper$WC03501 / BRIC.yearly_helper$WC07210
+
+# delete NA s from BM column
+BRIC.yearly_helper <- na.omit(BRIC.yearly_helper,cols = "BM")
+
+summary(BRIC.yearly_helper$BM)
+
+# eliminating unused columns
+panel_country_noNA <- subset(panel_country_noNA, select = c("hcjun","Id","country","MV.USD","RET.USD","ym","RF","month","year","Size","Date"))
+
+panel_country_BM <- inner_join(x = panel_country_noNA,y = BRIC.yearly_helper, by = "Id")
 
 
-summary(BRIC.yearly)
+# Determine the B/M breakpoints based on big stocks only
+hlpvariable2 <- panel_country_BM[month==7 & !is.na(BM) & Size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
+                                                                        bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
+              
+# Merge the B/M portfolio allocation back from July Y to June Y+1
+panel_country_new <- merge(panel_country_BM,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
 
+panel_country_new[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
+
+panel_country_new[, SIZE_VALUE := paste0(Size,".",pf.bm)]
+
+# we used MV.USD instead of the lagged MV
+
+portfolio_returns <- panel_country_new[!is.na(Size) & !is.na(pf.bm)] %>% # this operator nests functions
+  group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RET.USD,
+                                     MV.USD)) %>% # vw returns using lagged mcap
+  spread(SIZE_VALUE,ret.port) %>% # create one column for each group
+  mutate(
+    Small = (Small.High + Small.Neutral + Small.Low)/3, # just exemplary
+    Big = (Big.High + Big.Neutral + Big.Low)/3,
+    SMB = Small-Big,
+    High = (Small.High + Big.High)/2,
+    Low = (Small.Low + Big.Low)/2,
+    HML = High-Low
+  )
+
+portfolio_returns <- as.data.table(portfolio_returns)
+
+head(portfolio_returns)
+ 
+```
 ```
 
 ISIN: International Security Identification Number (stock identifier)
@@ -144,7 +283,8 @@ W05651: Common Shares Traded - Annual (Security)
 - calculate portfolio characteristics
 - visualize and showcase strategy performance
 - regress strategy PF on FF5FM and momentum for style exposure analysis
-- Literature 
+- Literature
+- sorting A-shares ... how to identify them?
 
 
 *Project Dates*:
@@ -253,114 +393,6 @@ summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
 summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
 ```
 
-# FF5FM Calulation new
-
-```{r}
-## 1 month t-bill rate
-# load data sheet from French's website
-library(readr)
-FFData <- read_csv("FF_Research_Data_5_Factors_2x3.CSV", 
-     skip = 2)
-
-# adding a ym column to risk free rate data
-one_m_tbill <- as.data.frame(FFData[c("X1","RF")][1:693,])
-
-one_m_tbill$ym<-as.yearmon(one_m_tbill$X1, "%Y %m")
-
-# merge risk-free rate (1 month treasury bill rate) with monthly data
-BRIC.monthly_full <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
-
-# make rf column numeric
-BRIC.monthly_full$RF <- as.numeric(BRIC.monthly_full$RF)
-
-```
-
-# calculate RMRF
-
-```{r}
-BRIC.monthly_full$RMRF <- BRIC.monthly_full$RET.USD - BRIC.monthly_full$RF
-```
-
-# Calculate SMB and HML
-comment: na values appear for size calculation, which differs from what in the excursus
-note: we omitted the na's for further calculation --> has to be clarified in the Q&A session with Hanauer
-
-we didn't calculate the lagged MV yet lines 271,315
-
-```{r}
-## Determine portfolio breakpoints for Size
-# Fama-French take the MV from end-of-June and rebalance yearly
-BRIC.monthly_full[,month := month(Date)]
-BRIC.monthly_full[,year := year(Date)]
-BRIC.monthly_full[,hcjun := ifelse(month>=7,year,year-1)]
-
-# determine size portfolio allocation from July on using data that's public from end-of-June on
-
-# we didn't calculate the lagged MV yet 
-
-setorder(BRIC.monthly_full,Date,-MV.USD)
-hlpvariable <-  BRIC.monthly_full[month==7 & !is.na(MV.USD),
-                .(Size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
-                               by=year]
-
-# Merge the size portfolio allocation back from July Y to June Y+1
-panel_country <- merge(BRIC.monthly_full,hlpvariable,
-                       by.x=c("hcjun","Id"),
-                       by.y=c("year","Id"),
-                       all.x=T)
-
-panel_country_noNA <- na.omit(panel_country,cols = "Size") 
-
-# merge yearly BM data with our table
-BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210","WC01001","WC01051","WC01101","WC01251","WC02999") )
-BRIC.yearly_helper$BM <- BRIC.yearly_helper$WC03501 / BRIC.yearly_helper$WC07210
-
-# delete NA s from BM column
-BRIC.yearly_helper <- na.omit(BRIC.yearly_helper,cols = "BM")
-
-summary(BRIC.yearly_helper$BM)
-
-# eliminating unused columns
-panel_country_noNA <- subset(panel_country_noNA, select = c("hcjun","Id","country","MV.USD","RET.USD","ym","RF","month","year","Size","Date"))
-
-panel_country_BM <- inner_join(x = panel_country_noNA,y = BRIC.yearly_helper, by = "Id")
-
-
-# Determine the B/M breakpoints based on big stocks only
-hlpvariable2 <- panel_country_BM[month==7 & !is.na(BM) & Size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
-                                                                        bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
-              
-# Merge the B/M portfolio allocation back from July Y to June Y+1
-panel_country_new <- merge(panel_country_BM,hlpvariable2,
-                       by.x=c("hcjun"),
-                       by.y=c("year"),
-                       all.x=T)
-
-panel_country_new[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
-
-panel_country_new[, SIZE_VALUE := paste0(Size,".",pf.bm)]
-
-# we used MV.USD instead of the lagged MV
-
-portfolio_returns <- panel_country_new[!is.na(Size) & !is.na(pf.bm)] %>% # this operator nests functions
-  group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RET.USD,
-                                     MV.USD)) %>% # vw returns using lagged mcap
-  spread(SIZE_VALUE,ret.port) %>% # create one column for each group
-  mutate(
-    Small = (Small.High + Small.Neutral + Small.Low)/3, # just exemplary
-    Big = (Big.High + Big.Neutral + Big.Low)/3,
-    SMB = Small-Big,
-    High = (Small.High + Big.High)/2,
-    Low = (Small.Low + Big.Low)/2,
-    HML = High-Low
-  )
-
-portfolio_returns <- as.data.table(portfolio_returns)
-
-head(portfolio_returns)
- 
-```
  
 # RMW
 profitability: OP/BE: Operating profits-to-book equity. We measure operating profits-to-book equity as in Fama and French (2015) as sales or revenues (WC01001) minus cost of goods sold (WC01051), minus selling, general, and administrative expenses (WC01101), minus interest expense (WC01251); all divided by book equity. (Hanauer, 2019, p. 284)
