@@ -65,24 +65,54 @@ memory.limit(9999999999)
 # loading R.data BRIC monthly
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_monthly.RData")
 
-# loading R.data BRIC monthly
+# loading R.data BRIC static
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_static.RData")
 
-# loading R.data BRIC monthly
+# loading R.data BRIC yearly
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_yearly.RData")
 
 ```
-# Clearing data from dates before July 1994 and NA s in RET.USD
+# Data preparation
 
 ```{r}
-# save raw data and adjust others to the required date range
+#0 save raw data
 BRIC.monthly.raw <- BRIC.monthly
-BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2019-01-01")
-BRIC.monthly <- na.omit(BRIC.monthly,cols = "RET.USD")
-
 BRIC.yearly.raw <- BRIC.yearly
+
+#1 adjust date range (from July 1994 on)
+#1.1 leave raw data with date adjustment
+BRIC.monthly.withNA <- subset(BRIC.monthly.raw, Date >= "1994-06-30" & Date <= "2019-01-01")
+BRIC.yearly.withNA <- subset(BRIC.yearly.raw, YEAR >= "1994" & YEAR <= "2019")
+#1.2 working dataframe
+BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2019-01-01")
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
 
+#2 delete na's
+#2.1 monthly data
+# no RET.USD data, no MV or no MV.USD
+BRIC.monthly <- BRIC.monthly %>%
+  drop_na(RET.USD,MV,MV.USD)
+
+#2.2 yearly data
+# no WC03501 (Common equity)
+BRIC.yearly <- BRIC.yearly %>%
+  drop_na(WC03501)
+# set WC03263 (deferred taxes) zero if NA
+BRIC.yearly$WC03263 <- BRIC.yearly$WC03263 %>% replace_na(0)
+
+#3 delete values with negative book value
+# add column for BookValue (Hanauer 2020 calculation)
+BRIC.yearly$BookValue <- BRIC.yearly$WC03501 + BRIC.yearly$WC03263
+# negative BookValue
+BRIC.yearly <- BRIC.yearly[BRIC.yearly$BookValue >= 0,]
+
+#4 minimise BRIC.yearly to columns needed
+#we keep: Id, country, ICBSUC, YEAR, BookValue and some other factors
+# Note: WC07201 is not used, as our MV should be the MV from the monthly data for 06.y !
+BRIC.yearly <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","WC03501","WC01001","WC01051","WC01101","WC01251","WC02999","WC03263") )
+
+
+summary(BRIC.yearly)
 
 ```
 
