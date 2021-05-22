@@ -109,9 +109,9 @@ BRIC.monthly[,hcjun := ifelse(month>=7,year,year-1)]
 # MV.USD.June column
 intermediate <- filter(BRIC.monthly,BRIC.monthly$month == 7)
 # minimise for join
-intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun","month"))
+intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","ym","hcjun"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","ym","hcjun","year","month"))
 #delete na's, set 0 and calculate important values
 # no RET.USD data, no MV or no LMV.USD
 BRIC.monthly <- BRIC.monthly %>%
@@ -121,7 +121,7 @@ intermediate <- intermediate %>%
 # inner join automatically deletes values where MV.USD.June is not available
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","ym","hcjun"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","ym","hcjun","year","month"))
 ```
 
 ## 3 BRIC.yearly data preparation and value calculation
@@ -153,22 +153,17 @@ BRIC.yearly$WC01101 <- BRIC.yearly$WC01101 %>% replace_na(0)
 BRIC.yearly$WC01251 <- BRIC.yearly$WC01251 %>% replace_na(0)
 # calculate operating profits (Hanauer, 2019, p.284)
 BRIC.yearly$OperatingProfits <- (BRIC.yearly$WC01001 - BRIC.yearly$WC01051 - BRIC.yearly$WC01101 - BRIC.yearly$WC01251)
-```
 
-!!!!Note: If we remove less columns in our data sheet we can add them back here without any problem!!!!
-## 4 minimise BRIC.yearly to columns needed
-
-```{r}
+# 3.4 minimise data frame
 # for BRIC.yearly we keep: Id, country, ICBSUC, YEAR, BookValue, OperatingProfits and total assets
 # Note: WC07201 is not used, as our MV should be the MV from the monthly data for 06.y !
 BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","OperatingProfits","WC02999"))
 # last we rename WC02999 to total assets
 colnames(BRIC.yearly)[7] <- "TotalAssets"
-
 ```
 
-# 5 FF5FM Calculation
-## 5.1 Adding the 1-m treasury rate to the monthly data
+# 4 FF5FM Calculation
+## 4.1 Adding the 1-m treasury rate to the monthly data
 ```{r}
 # load data sheet from French's website
 FFData <- read_csv("FF_Research_Data_5_Factors_2x3.CSV", 
@@ -187,61 +182,32 @@ BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
 
 ```
 
-## 5.2 Calculate RMRF
+## 4.2 Calculate RMRF
 ```{r}
 BRIC.monthly$RMRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
 ```
 
-## ---- INTERMEDIATE ---- create "working copys" of BRIC.monthly and BRIC.yearly // may be deleted later
+## 4.3 Determine size Breakpoints
 ```{r}
-BRIC.monthly.df <- BRIC.monthly
-BRIC.yearly.df <- BRIC.yearly
-```
-
-## 5.3 Determine size Breakpoints
-comment: na values appear for size calculation, which differs from what in the excursus
-note: we omitted the na's for further calculation --> has to be clarified in the Q&A session with Hanauer
-we didn't calculate the lagged MV yet lines 271,315
-```{r}
-# Determine portfolio breakpoints for Size
-# Fama-French take the MV from end-of-June and rebalance yearly
-BRIC.monthly.df[,month := month(Date)]
-BRIC.monthly.df[,year := year(Date)]
-BRIC.monthly.df[,hcjun := ifelse(month>=7,year,year-1)]
-
-# determine size portfolio allocation from July on using data that's public from end-of-June on
-
-# we didn't calculate the lagged MV yet 
-
-setorder(BRIC.monthly.df,Date,-MV.USD)
-hlpvariable <-  BRIC.monthly.df[month==7 & !is.na(MV.USD),
-                .(Size = ifelse((cumsum(MV.USD)/sum(MV.USD))>=0.9,"Small","Big"),Id),
+setorder(BRIC.monthly,Date,-MV.USD.June)
+hlpvariable <-  BRIC.monthly[month==7 & !is.na(MV.USD.June),
+                .(pf.size = ifelse((cumsum(MV.USD.June)/sum(MV.USD.June))>=0.9,"Small","Big"),Id),
                                by=year]
 
 # Merge the size portfolio allocation back from July Y to June Y+1
-panel_country <- merge(BRIC.monthly.df,hlpvariable,
+BRIC.monthly.df <- merge(BRIC.monthly,hlpvariable,
                        by.x=c("hcjun","Id"),
                        by.y=c("year","Id"),
                        all.x=T)
 
-panel_country_noNA <- na.omit(panel_country,cols = "Size") 
+# delete NA's (only about 1000 rows)
+BRIC.monthly.df <- na.omit(panel_country,cols = "pf.size") 
 ```
 
-## 5.4 Merge monthly and accounting (yearly) data
+## 4.4 Merge monthly and accounting (yearly) data
 ```{r}
-# merge yearly BM data with our table
-BRIC.yearly_helper <- subset( BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","WC03501","WC07210","WC01001","WC01051","WC01101","WC01251","WC02999") )
-BRIC.yearly_helper$BM <- BRIC.yearly_helper$WC03501 / BRIC.yearly_helper$WC07210
 
-# delete NA s from BM column
-BRIC.yearly_helper <- na.omit(BRIC.yearly_helper,cols = "BM")
-
-summary(BRIC.yearly_helper$BM)
-
-# eliminating unused columns
-panel_country_noNA <- subset(panel_country_noNA, select = c("hcjun","Id","country","MV.USD","RET.USD","ym","RF","month","year","Size","Date"))
-
-panel_country_BM <- inner_join(x = panel_country_noNA,y = BRIC.yearly_helper, by = "Id")
+BRIC.maindata <- inner_join(x = BRIC.monthly.df,y = BRIC.yearly, by = c("Id","hcjun"))
 
 
 # Determine the B/M breakpoints based on big stocks only
