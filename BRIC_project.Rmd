@@ -187,49 +187,56 @@ BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
 BRIC.monthly$RMRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
 ```
 
-## 4.3 Determine size Breakpoints
+## 4.3 Merge monthly and accounting (yearly) data
+NOTE: Here we "loose" around 600 000 rows! 
+
 ```{r}
-setorder(BRIC.monthly,Date,-MV.USD.June)
-hlpvariable <-  BRIC.monthly[month==7 & !is.na(MV.USD.June),
+BRIC.maindata <- inner_join(x = BRIC.monthly,y = BRIC.yearly, by = c("Id","hcjun" = "YEAR"))
+```
+
+## 4.4 Determine size Breakpoints
+```{r}
+setorder(BRIC.maindata,Date,-MV.USD.June)
+hlpvariable <-  BRIC.maindata[month==7 & !is.na(MV.USD.June),
                 .(pf.size = ifelse((cumsum(MV.USD.June)/sum(MV.USD.June))>=0.9,"Small","Big"),Id),
                                by=year]
 
 # Merge the size portfolio allocation back from July Y to June Y+1
-BRIC.monthly.df <- merge(BRIC.monthly,hlpvariable,
+BRIC.maindata <- merge(BRIC.maindata,hlpvariable,
                        by.x=c("hcjun","Id"),
                        by.y=c("year","Id"),
                        all.x=T)
 
 # delete NA's (only about 1000 rows)
-BRIC.monthly.df <- na.omit(panel_country,cols = "pf.size") 
+BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size") 
 ```
 
-## 4.4 Merge monthly and accounting (yearly) data
+## 4.5 Determine B/M breakpoints
 ```{r}
-
-BRIC.maindata <- inner_join(x = BRIC.monthly.df,y = BRIC.yearly, by = c("Id","hcjun"))
-
+# Add a B/M column
+BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$LMV.USD
 
 # Determine the B/M breakpoints based on big stocks only
-hlpvariable2 <- panel_country_BM[month==7 & !is.na(BM) & Size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
+hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
                                                                         bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
               
 # Merge the B/M portfolio allocation back from July Y to June Y+1
-panel_country_new <- merge(panel_country_BM,hlpvariable2,
+BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
                        by.x=c("hcjun"),
                        by.y=c("year"),
                        all.x=T)
 
-panel_country_new[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
+BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
 
-panel_country_new[, SIZE_VALUE := paste0(Size,".",pf.bm)]
+BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
+```
 
-# we used MV.USD instead of the lagged MV
-
-portfolio_returns <- panel_country_new[!is.na(Size) & !is.na(pf.bm)] %>% # this operator nests functions
+## 4.6 Calculate SMB and HML
+```{r}
+portfolio_returns <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
   group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
   summarize(ret.port = weighted.mean(RET.USD,
-                                     MV.USD)) %>% # vw returns using lagged mcap
+                                     LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_VALUE,ret.port) %>% # create one column for each group
   mutate(
     Small = (Small.High + Small.Neutral + Small.Low)/3, # just exemplary
@@ -241,10 +248,26 @@ portfolio_returns <- panel_country_new[!is.na(Size) & !is.na(pf.bm)] %>% # this 
   )
 
 portfolio_returns <- as.data.table(portfolio_returns)
-
-head(portfolio_returns)
  
 ```
+
+# 4.7 Determine OP/
+```{r}
+
+
+
+
+
+```
+
+# 4.8 Calculate CMA
+investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
+```{r}
+
+
+
+
+
 ```
 
 ISIN: International Security Identification Number (stock identifier)
@@ -385,28 +408,6 @@ summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
 summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
 ```
 
- 
-# RMW
-profitability: OP/BE: Operating profits-to-book equity. We measure operating profits-to-book equity as in Fama and French (2015) as sales or revenues (WC01001) minus cost of goods sold (WC01051), minus selling, general, and administrative expenses (WC01101), minus interest expense (WC01251); all divided by book equity. (Hanauer, 2019, p. 284)
-```{r}
-# use BRIC.yearly_helper
-
-
-
-```
-
-
-
-
-
-# CMA
-investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
-```{r}
-# use BRIC.yearly_helper
-
-
-
-```
 
 # Strategy
 
