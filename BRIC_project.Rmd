@@ -126,6 +126,12 @@ BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.U
 
 ## 3 BRIC.yearly data preparation and value calculation
 ```{r}
+#3.0 the BRIC.yearly panel here is still balanced! We need to add a column for total assets the year before
+#add the lagged WC03501 (this is the WC03501 from the previous month) 
+BRIC.yearly[, lag.value:=c(0, WC03501[-.N]), by=Id]
+# rename column to LMV.USD
+colnames(BRIC.yearly)[106] <- "TotalAssetsBefore"
+
 #3.1 book value / equity and related
 # delete rows with no WC03501 (Common equity)
 BRIC.yearly <- BRIC.yearly %>%
@@ -141,6 +147,9 @@ BRIC.yearly <- BRIC.yearly[BRIC.yearly$BookValue >= 0,]
 # delete rows with no WC02999 (total assets)
 BRIC.yearly <- BRIC.yearly %>%
   drop_na(WC02999)
+# delete rows with no TotalAssetsBefore
+BRIC.yearly <- BRIC.yearly %>%
+  drop_na(TotalAssetsBefore)
 
 #3.3 operating profits
 # "To have a valid value, at least one of cost components cost of goods sold, selling, general and administrative expenses, or interest expense must be non-missing." (Hanauer, 2019, p. 284) --> if one of these values is missing, we must delete these rows WC01001,WC01051,WC01101,WC01251
@@ -157,9 +166,13 @@ BRIC.yearly$OperatingProfits <- (BRIC.yearly$WC01001 - BRIC.yearly$WC01051 - BRI
 # 3.4 minimise data frame
 # for BRIC.yearly we keep: Id, country, ICBSUC, YEAR, BookValue, OperatingProfits and total assets
 # Note: WC07201 is not used, as our MV should be the MV from the monthly data for 06.y !
-BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","OperatingProfits","WC02999"))
-# last we rename WC02999 to total assets
+BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","OperatingProfits","WC02999","TotalAssetsBefore"))
+# we rename WC02999 to total assets
 colnames(BRIC.yearly)[7] <- "TotalAssets"
+
+#3.5 delete 1994 data
+BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1995" & YEAR <= "2019")
+
 ```
 
 # 4 FF5FM Calculation
@@ -194,7 +207,7 @@ NOTE: Here we "loose" around 600 000 rows!
 BRIC.maindata <- inner_join(x = BRIC.monthly,y = BRIC.yearly, by = c("Id","hcjun" = "YEAR"))
 ```
 
-## 4.4 Determine size Breakpoints
+## 4.4 SMB: Determine size Breakpoints
 ```{r}
 setorder(BRIC.maindata,Date,-MV.USD.June)
 hlpvariable <-  BRIC.maindata[month==7 & !is.na(MV.USD.June),
@@ -211,7 +224,7 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable,
 BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size") 
 ```
 
-## 4.5 Determine B/M breakpoints
+## 4.5 HML: Determine B/M breakpoints
 ```{r}
 # Add a B/M column
 BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV.USD
@@ -231,7 +244,51 @@ BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_b
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
 ```
 
-## 4.6 Calculate SMB and HML
+# 4.6 RMW: Determine OP/BE breakpoints
+```{r}
+# Add a OP/BE column
+BRIC.maindata$OPBE <- BRIC.maindata$OperatingProfits / BRIC.maindata$BookValue
+
+# Determine the OP/BE breakpoints based on big stocks only
+hlpvariable2 <- BRIC.maindata[month==7 & !is.na(OPBE) & pf.size=="Big", .(opbe_bb30 = quantile(OPBE , probs = c(0.3), na.rm=T),
+                                                                        opbe_bb70 = quantile(OPBE , probs = c(0.7), na.rm=T)),by=year]
+              
+# Merge the OP/BE portfolio allocation back from July Y to June Y+1
+BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+BRIC.maindata[ , pf.opbe := ifelse(OPBE>opbe_bb70,"Robust",ifelse((OPBE<=opbe_bb70 & OPBE>opbe_bb30),"Neutral",ifelse(OPBE<=opbe_bb30,"Weak",NA)))]
+
+BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
+
+```
+
+TASK! CHECK! Check with Cooper (2008) and FF(2015) what conservative and what aggressive is!
+# 4.7 Calculate CMA
+investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
+```{r}
+# Add a AssetChange column
+BRIC.maindata$AssetChange <- ((BRIC.maindata$TotalAssets - BRIC.maindata$TotalAssetsBefore)/BRIC.maindata$TotalAssetsBefore)
+
+# Determine the AC breakpoints based on big stocks only
+hlpvariable2 <- BRIC.maindata[month==7 & !is.na(AssetChange) & pf.size=="Big", .(ac_bb30 = quantile(AssetChange , probs = c(0.3), na.rm=T),
+                                                                        ac_bb70 = quantile(AssetChange , probs = c(0.7), na.rm=T)),by=year]
+              
+# Merge the AC portfolio allocation back from July Y to June Y+1
+BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+BRIC.maindata[ , pf.ac := ifelse(AssetChange>ac_bb70,"Aggressive",ifelse((AssetChange<=ac_bb70 & AssetChange>ac_bb30),"Neutral",ifelse(AssetChange<=ac_bb30,"Conservative",NA)))]
+
+BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
+
+```
+
+## 4.8 Calculate Factors (working on it)
 ```{r}
 portfolio_returns <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
   group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
@@ -251,24 +308,6 @@ portfolio_returns <- as.data.table(portfolio_returns)
  
 ```
 
-# 4.7 Determine OP/
-```{r}
-
-
-
-
-
-```
-
-# 4.8 Calculate CMA
-investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
-```{r}
-
-
-
-
-
-```
 
 ISIN: International Security Identification Number (stock identifier)
 ESTAT: active vs inactive company (publicly listed or not)
