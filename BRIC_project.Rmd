@@ -214,7 +214,7 @@ BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size")
 ## 4.5 Determine B/M breakpoints
 ```{r}
 # Add a B/M column
-BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$LMV.USD
+BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV.USD
 
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
