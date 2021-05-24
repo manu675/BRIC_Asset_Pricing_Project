@@ -60,7 +60,7 @@ https://www.professors.wi.tum.de/fileadmin/w00bca/fm/Worldscope_Data_Definition_
 
 https://docs.google.com/spreadsheets/d/1YtuJiv60Q6nKIaFJLQY60sGQErbsl_8nvPdUHmvO8vM/edit?usp=sharing
 
-
+Loading data Johannes
 ```{r}
 memory.limit(9999999999)
 # loading R.data BRIC monthly
@@ -73,7 +73,21 @@ load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_static.RData")
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_yearly.RData")
 
 ```
+
+
+Loading data Manuel
+```{r}
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_monthly.RData")
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_static.RData")
+# loading R.data BRIC monthly
+load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_yearly.RData")
+```
+
+
 # Data preparation
+
 
 ## 1 Save raw data and adjust date range
 
@@ -563,5 +577,8 @@ big_stocks_RUS
 # Calculating the size portfolios
 
 
+# Important plots
 
+Plot factor returns (performance by factor and/or by country)
+Plot portfolio performance against the benchmark 
 
