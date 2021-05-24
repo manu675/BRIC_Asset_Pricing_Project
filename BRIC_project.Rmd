@@ -108,11 +108,11 @@ BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
 ## 2 BRIC.monthly data preparation
 at this point of time the data sheet is still balanced, therefore we can use the shift function
 ```{r}
-#add the lagged MV.USD (this is the MV.USD from the previous month) 
+# add a new column for the lagged MV.USD (this is the MV.USD from the previous month) 
 BRIC.monthly[, lag.value:=c(1, MV.USD[-.N]), by=Id]
 # rename column to LMV.USD
 colnames(BRIC.monthly)[14] <- "LMV.USD"
-#delete entry for "1994-06-30" as lag-value is wrong and this data point not needed
+# delete entry for "1994-06-30" as lag-value is wrong and this data point is not needed
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-07-29" & Date <= "2019-02-01")
 
 # calculate MV.USD.June for every column
@@ -126,23 +126,89 @@ intermediate <- filter(BRIC.monthly,BRIC.monthly$month == 7)
 intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
 BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","ym","hcjun","year","month"))
-#delete na's, set 0 and calculate important values
-# no RET.USD data, no MV or no LMV.USD
-BRIC.monthly <- BRIC.monthly %>%
-  drop_na(RET.USD,MV,MV.USD,LMV.USD)
-intermediate <- intermediate %>%
-  drop_na(MV.USD.June)
+
+
+
 # inner join automatically deletes values where MV.USD.June is not available
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
 BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","ym","hcjun","year","month"))
 ```
 
+# Strategy implementation on the balanced panel data (Multifactor etf)
+
+## Volatility (Min Vol)
+
+```{r}
+# creating a separate dataframe for the strategy implementation
+BRIC.strategy <- BRIC.monthly
+
+# creating a time series object by stock i.e. a return panel
+##BRIC.strategy.panel <- pdata.frame(x=BRIC.strategy, index = c("Id", "ym"))
+
+##ret_panel <- BRIC.strategy.panel["RET.USD"]
+
+##head(ret_panel)
+
+#ret_panel <- zoo(ret_panel) you can't convert it into a zoo object
+
+class(ret_panel)
+
+# 36 months rolling SD for the stock returns
+roll_sd_36 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=36, by.column=F, na.rm=F)
+
+roll_sd_36
+
+summary(roll_sd_36)
+
+length(roll_sd_36)
+
+sum(is.na(roll_sd_36)) # 1,736,313
+
+# 24 months rolling SD for the stock returns
+roll_sd_24 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=24, by.column=F, na.rm=T)
+
+roll_sd_24
+
+sum(is.na(roll_sd_24)) # 1,837,842
+
+# adding a volatility column to the data.frame
+
+BRIC.strategy$vola <- roll_sd_36
+
+tail(roll_sd_36)
+
+
+# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
+
+low_vol <- subset(roll_sd_36, cumsum(roll_sd_36) >= 0.2*sort(roll_sd_36, decreasing = F))
+
+
+length(low_vol)
+
+summary(low_vol)
+
+```
+
+
+## 2.1 Raw code to remove NAs (BRIC.monthly)
+
+```{r}
+# delete na's, set 0 and calculate important values
+# no RET.USD data, no MV or no LMV.USD
+BRIC.monthly <- BRIC.monthly %>%
+  drop_na(RET.USD,MV,MV.USD,LMV.USD)
+intermediate <- intermediate %>%
+  drop_na(MV.USD.June)
+```
+
+
 ## 3 BRIC.yearly data preparation and value calculation
+
 ```{r}
 #3.0 the BRIC.yearly panel here is still balanced! We need to add a column for total assets the year before
-#add the lagged WC03501 (this is the WC03501 from the previous month) 
-BRIC.yearly[, lag.value:=c(0, WC03501[-.N]), by=Id]
+#add the lagged WC03501 (shifted by Id) (this is the WC03501 from the previous month) 
+BRIC.yearly[, lag.value:=c(0, WC03501[-.N]), by=Id] 
 # rename column to LMV.USD
 colnames(BRIC.yearly)[106] <- "TotalAssetsBefore"
 
@@ -184,7 +250,7 @@ BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","Bo
 # we rename WC02999 to total assets
 colnames(BRIC.yearly)[7] <- "TotalAssets"
 
-#3.5 delete 1994 data
+# 3.5 delete 1994 data (no accounting data for 1994 needed)
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1995" & YEAR <= "2019")
 
 ```
@@ -241,7 +307,7 @@ BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size")
 ## 4.5 HML: Determine B/M breakpoints
 ```{r}
 # Add a B/M column
-BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV.USD
+BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV
 
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
@@ -256,6 +322,8 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
 BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
 
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
+
+head(BRIC.maindata)
 ```
 
 # 4.6 RMW: Determine OP/BE breakpoints
@@ -273,6 +341,7 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
                        by.y=c("year"),
                        all.x=T)
 
+# 3 OP/BE brackets: Robust, Neutral and Weak
 BRIC.maindata[ , pf.opbe := ifelse(OPBE>opbe_bb70,"Robust",ifelse((OPBE<=opbe_bb70 & OPBE>opbe_bb30),"Neutral",ifelse(OPBE<=opbe_bb30,"Weak",NA)))]
 
 BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
@@ -296,6 +365,7 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
                        by.y=c("year"),
                        all.x=T)
 
+# 3 investment brackets: Aggressive, neutral and conservative
 BRIC.maindata[ , pf.ac := ifelse(AssetChange>ac_bb70,"Aggressive",ifelse((AssetChange<=ac_bb70 & AssetChange>ac_bb30),"Neutral",ifelse(AssetChange<=ac_bb30,"Conservative",NA)))]
 
 BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
