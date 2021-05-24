@@ -304,6 +304,48 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable,
 BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size") 
 ```
 
+RMRF used for benchmark in p.50 lecture slides
+For annualisation we used arithmetic average * 12
+## 4.4/Benchmark
+```{r}
+# create copy
+BRIC.benchmark <- BRIC.maindata
+
+# filter on pf.size
+BRIC.benchmark <- filter(BRIC.benchmark,BRIC.benchmark$pf.size == "Big")
+
+# BRIC
+# per year
+benchmark.retBricY <- aggregate(RMRF ~ hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retBricY$RMRF <- benchmark.retBricY$RMRF * 12
+# per month
+benchmark.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.benchmark,FUN = mean)
+
+# per country
+# per year
+benchmark.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retCountryY$RMRF <- benchmark.retCountryY$RMRF * 12
+# per month
+benchmark.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = mean)
+
+# single dataframe
+benchmark_BRIC <- inner_join(benchmark.retBricY,benchmark.retBricM,by = "hcjun")
+benchmark_Country <- inner_join(benchmark.retCountryY,benchmark.retCountryM,by = c("hcjun","country.x"))
+# rename columns
+colnames(benchmark_BRIC)[2] <- "YearlyReturn"
+colnames(benchmark_BRIC)[4] <- "MonthlyReturn"
+colnames(benchmark_Country)[3] <- "YearlyReturn"
+colnames(benchmark_Country)[5] <- "MonthlyReturn"
+
+# plot
+a <- ggplot(data = benchmark_BRIC) + geom_line(aes(x = ym, y = MonthlyReturn)) + geom_line(aes(x = ym, y = YearlyReturn, color="red"))
+a
+```
+
+Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
+
+![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
+
 ## 4.5 HML: Determine B/M breakpoints
 ```{r}
 # Add a B/M column
@@ -322,8 +364,6 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
 BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
 
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
-
-head(BRIC.maindata)
 ```
 
 # 4.6 RMW: Determine OP/BE breakpoints
@@ -348,7 +388,6 @@ BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
 
 ```
 
-TASK! CHECK! Check with Cooper (2008) and FF(2015) what conservative and what aggressive is!
 # 4.7 Calculate CMA
 investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
 ```{r}
@@ -369,27 +408,69 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
 BRIC.maindata[ , pf.ac := ifelse(AssetChange>ac_bb70,"Aggressive",ifelse((AssetChange<=ac_bb70 & AssetChange>ac_bb30),"Neutral",ifelse(AssetChange<=ac_bb30,"Conservative",NA)))]
 
 BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
-
 ```
 
-## 4.8 Calculate Factors (working on it)
+
+https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_factors_2x3.html
+
+## 4.8 Calculate Factors
 ```{r}
-portfolio_returns <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
+
+portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
   group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RET.USD,
+  summarize(ret.port = weighted.mean(RMRF,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_VALUE,ret.port) %>% # create one column for each group
   mutate(
     Small = (Small.High + Small.Neutral + Small.Low)/3, # just exemplary
     Big = (Big.High + Big.Neutral + Big.Low)/3,
-    SMB = Small-Big,
+    SMB_HML = Small-Big,
     High = (Small.High + Big.High)/2,
     Low = (Small.Low + Big.Low)/2,
     HML = High-Low
   )
 
-portfolio_returns <- as.data.table(portfolio_returns)
- 
+portfolio_hml <- as.data.table(portfolio_hml)
+
+portfolio_rmw <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.opbe)] %>% # this operator nests functions
+  group_by(Date,SIZE_PROFITABILITY) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RMRF,
+                                     LMV.USD)) %>% # vw returns using lagged mcap
+  spread(SIZE_PROFITABILITY,ret.port) %>% # create one column for each group
+  mutate(
+    Small = (Small.Robust + Small.Neutral + Small.Weak)/3, # just exemplary
+    Big = (Big.Robust + Big.Neutral + Big.Weak)/3,
+    SMB_RMW = Small-Big,
+    Robust = (Small.Robust + Big.Robust)/2,
+    Weak = (Small.Weak + Big.Weak)/2,
+    RMW = Robust - Weak
+  )
+
+portfolio_rmw <- as.data.table(portfolio_rmw)
+
+portfolio_cma <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.ac)] %>% # this operator nests functions
+  group_by(Date,SIZE_INVESTMENT) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RMRF,
+                                     LMV.USD)) %>% # vw returns using lagged mcap
+  spread(SIZE_INVESTMENT,ret.port) %>% # create one column for each group
+  mutate(
+    Small = (Small.Aggressive + Small.Neutral + Small.Conservative)/3, # just exemplary
+    Big = (Big.Aggressive + Big.Neutral + Big.Conservative)/3,
+    SMB_CMA = Small-Big,
+    Aggressive = (Small.Aggressive + Big.Aggressive)/2,
+    Conservative = (Small.Conservative + Big.Conservative)/2,
+    CMA = Conservative - Aggressive
+  )
+
+portfolio_cma <- as.data.table(portfolio_cma)
+
+factors <- inner_join(x = portfolio_hml, y = portfolio_rmw, by = "Date")
+factors <- inner_join(x = factors, y = portfolio_cma, by = "Date")
+factors <- subset(factors, select = c("Date","CMA","HML","RMW","SMB_HML","SMB_RMW","SMB_CMA"))
+factors$SMB <- ((factors$SMB_HML + factors$SMB_RMW + factors$SMB_CMA)/3)
+factors <- subset(factors, select = c("Date","CMA","HML","RMW","SMB"))
+
+summary(factors)
 ```
 
 
@@ -499,31 +580,6 @@ BRIC.yearly %>% mutate_all(is.na) %>% summarize_all(sum)
 df_combined %>% mutate_all(is.na) %>% summarize_all(sum)
 ```
 
-
-
-
-Idea: calculate 90% of the sum of all stock market caps per country as a time series
-(store the result in a column )
-
-```{r}
-# Big stocks should be defined as the biggest stocks which together account for 90% of # a country's aggregated market capitalization
-
-
-# grouping the mcap values of individual stocks by country
-mcap_country <- df_combined %>%
-  filter(df_combined$MV.USD != "NA") %>% 
-  group_by(country.x, ym) 
-
-# computing the sum of the individual stock's market caps by country
-country_mcap <- mcap_country %>%
-group_by(country.x, ym) %>%
-    summarize(mc_sum = sum(MV.USD))
-
-country_mcap
-
-
-```
-
 ```{r}
 summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
 summary(country_mcap$mc_sum[country_mcap$country.x == "RUS"])
@@ -581,6 +637,61 @@ df4$Covariance <- (1/(df4$n-1))*(df4$SumPotOfRetMinμ)
 plot(mean_return$ym,mean_return$RET.USD)
 
 # yearly basis
+
+```
+
+# Strategy implementation on the balanced panel data (Multifactor etf)
+
+## Volatility (Min Vol)
+
+```{r}
+# creating a separate dataframe for the strategy implementation
+BRIC.strategy <- BRIC.monthly
+
+# creating a time series object by stock i.e. a return panel
+##BRIC.strategy.panel <- pdata.frame(x=BRIC.strategy, index = c("Id", "ym"))
+
+##ret_panel <- BRIC.strategy.panel["RET.USD"]
+
+##head(ret_panel)
+
+#ret_panel <- zoo(ret_panel) you can't convert it into a zoo object
+
+class(ret_panel)
+
+# 36 months rolling SD for the stock returns
+roll_sd_36 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=36, by.column=F, na.rm=F)
+
+roll_sd_36
+
+summary(roll_sd_36)
+
+length(roll_sd_36)
+
+sum(is.na(roll_sd_36)) # 1,736,313
+
+# 24 months rolling SD for the stock returns
+roll_sd_24 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=24, by.column=F, na.rm=T)
+
+roll_sd_24
+
+sum(is.na(roll_sd_24)) # 1,837,842
+
+# adding a volatility column to the data.frame
+
+BRIC.strategy$vola <- roll_sd_36
+
+tail(roll_sd_36)
+
+
+# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
+
+low_vol <- subset(roll_sd_36, cumsum(roll_sd_36) >= 0.2*sort(roll_sd_36, decreasing = F))
+
+
+length(low_vol)
+
+summary(low_vol)
 
 ```
 
