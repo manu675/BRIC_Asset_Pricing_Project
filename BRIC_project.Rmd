@@ -694,6 +694,132 @@ length(low_vol)
 summary(low_vol)
 
 ```
+# Multifactor Portfolio sort
+
+https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
+
+```{r}
+BRIC.mfstrategy <- BRIC.maindata
+
+colnames(BRIC.mfstrategy)
+
+## Value factor
+## creating a large cap and high B/M ratio column (large cap value)
+
+# subsetting the large cap stocks only
+BRIC.mfstrategy <- subset(BRIC.mfstrategy, pf.size == "Big" )
+
+# subsetting only value stocks (cutoff = median) Look up CUTOFF details
+BRIC.mfstrategy <- subset(BRIC.mfstrategy, BM > median(BM))
+
+
+### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
+
+## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
+
+# Specifically, a strategy that selects stocks on the basis of returns over
+# the past J months and holds them for K months (we will refer to this as a
+# J-month/K-month strategy) is constructed as follows: At the beginning of
+# each month t the securities are ranked in ascending order on the basis of
+# their returns in the past J months.
+
+# creating a 12 months of past winners
+
+ret_tbl <- subset(BRIC.mfstrategy, select= c("RET.USD","Id","ym"))
+
+# creating the 1st lag by id 
+lag_1id <- shift(BRIC.mfstrategy$RET.USD,n=1)
+
+lag_1id
+
+# creating the 12th lag by id 
+lag_12id <- shift(BRIC.mfstrategy$RET.USD,n=12)
+
+
+##lag_12id <- ret_tbl %>%
+##   group_by(Id) %>% 
+##   mutate(shift(RET.USD,n=12), na.rm =TRUE)
+
+
+ret_tbl$mon_return <-  BRIC.mfstrategy$RET.USD
+ret_tbl$skip_mon_return <- lag_1id
+ret_tbl$twelve_mon_return <- lag_12id
+
+
+head(ret_tbl)
+
+
+# We want to add a layer of logic that says, count the number of positive months over the 
+# preceding 12 months, and if equal to at least 8, encode a 1, else encode a 0
+
+# First, we label each month as positive or negative. If positive, label it 1, if negative label it 0. That will allow us to sum the positive months.
+
+ret_tbl %>% 
+  slice(-1:-2) %>% 
+  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+                             TRUE ~ 1))                    
+
+# Next, we find the rolling sum of the pos_neg column
+ret_tbl %>% 
+  slice(-1:-2) %>% 
+  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+                             TRUE ~ 1),
+         pos_sum = rollsum(pos_neg, 12,                    fill = NA,                    align = "right")) %>% 
+  slice(12:16)
+
+# If the pos_sum is greater than or equal to 8, we label that period a 1. I'll call that label 
+# the consist_indicator
+
+ret_tbl %>% 
+  slice(-1:-2) %>% 
+  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+                             TRUE ~ 1),
+         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+                                    TRUE ~ 0)) %>% 
+  select(Id, ym, skip_mon_return, pos_neg, pos_sum,                  consist_indicator, twelve_mon_return) %>% 
+  slice(12:16)
+
+
+# We now have an indicator for the consistency of the momentum. We can code up an algorithm that # says if twelve_mon_return is positive and if consist_indicator is at least 8, then hold the 
+# asset for the following month, and code that time period as 'quality'
+
+ret_tbl %>% 
+  slice(-1:-2) %>% 
+  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+                             TRUE ~ 1),
+         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+                                    TRUE ~ 0),
+         strat_returns = if_else(lag(twelve_mon_return) > 0 &                                        lag(consist_indicator) == 1,
+                                 mon_return, 0),
+         strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
+                                 "quality", "not_quality")) %>% 
+          na.omit()
+
+
+ret_tbl %>% 
+  slice(-1:-2) %>% 
+  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+                             TRUE ~ 1),
+         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+                                    TRUE ~ 0),
+         strat_returns = if_else(lag(twelve_mon_return) > 0 &                                  lag(consist_indicator) == 1,
+                                 mon_return, 0),
+         strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
+                                 "quality", "not_quality")) %>% 
+  na.omit() %>% 
+  count(strat_label) %>%         
+  mutate(prop = prop.table(n))
+```
+
+
+
+# Important plots
+
+Plot factor returns (performance by factor and/or by country)
+Plot portfolio performance against the benchmark 
 
 
 
