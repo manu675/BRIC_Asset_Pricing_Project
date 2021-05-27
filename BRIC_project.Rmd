@@ -35,6 +35,43 @@ changing the WD
 ```{r}
 ##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
 ```
+# 0000. Reusable Code
+```{r}
+##summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
+##summary(country_mcap$mc_sum[country_mcap$country.x == "RUS"])
+##summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
+##summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
+# finding the number of NA values by column in the dataframe
+##BRIC.monthly %>% mutate_all(is.na) %>% summarize_all(sum)
+
+
+# idea:
+# 
+# big_stocks <- mcap_country %>%
+#   select(ISIN) %>%
+#  sort(mcap_country$WC07210, decreasing=T)  %>%
+#   filter(mcap_country$WC07210 <= 0.9*country_mcap$mc_sum)
+# 
+# big_stocks
+# 
+# # sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
+# 
+# # RUSSIA
+# # 90% of the market cap in Russia: 
+# 0.9*country_mcap$mc_sum[4]
+# 
+# # subsetting all Russian stocks
+# russian_stocks <- as.data.frame(mcap_country) %>%
+#    filter(country.x == "RUS") 
+# 
+# # sorting the dataframe of russian stocks by decreasing market cap
+# russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
+#  
+# # filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
+# big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
+# 
+# big_stocks_RUS
+```
 
 # Loading Libraries
 
@@ -112,7 +149,11 @@ at this point of time the data sheet is still balanced, therefore we can use the
 BRIC.monthly[, lag.value:=c(1, MV.USD[-.N]), by=Id]
 # rename column to LMV.USD
 colnames(BRIC.monthly)[14] <- "LMV.USD"
-# delete entry for "1994-06-30" as lag-value is wrong and this data point is not needed
+# add a new column for volatility
+BRIC.monthly <- BRIC.monthly[, vol := lag(rollapplyr(RET.USD, 36, sd, fill = NA, partial = 12),1), by =Id]
+# rename column to Volatility
+colnames(BRIC.monthly)[15] <- "volatility"
+# delete all entrys before July 1994
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-07-29" & Date <= "2019-02-01")
 
 # calculate MV.USD.June for every column
@@ -125,71 +166,13 @@ intermediate <- filter(BRIC.monthly,BRIC.monthly$month == 7)
 # minimise for join
 intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","ym","hcjun","year","month"))
-
-
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","volatility","ym","hcjun","year","month"))
 
 # inner join automatically deletes values where MV.USD.June is not available
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","ym","hcjun","year","month"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","volatility","ym","hcjun","year","month"))
 ```
-
-# Strategy implementation on the balanced panel data (Multifactor etf)
-
-## Volatility (Min Vol)
-
-```{r}
-# creating a separate dataframe for the strategy implementation
-BRIC.strategy <- BRIC.monthly
-
-# creating a time series object by stock i.e. a return panel
-##BRIC.strategy.panel <- pdata.frame(x=BRIC.strategy, index = c("Id", "ym"))
-
-##ret_panel <- BRIC.strategy.panel["RET.USD"]
-
-##head(ret_panel)
-
-#ret_panel <- zoo(ret_panel) you can't convert it into a zoo object
-
-class(ret_panel)
-
-# 36 months rolling SD for the stock returns
-roll_sd_36 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=36, by.column=F, na.rm=F)
-
-roll_sd_36
-
-summary(roll_sd_36)
-
-length(roll_sd_36)
-
-sum(is.na(roll_sd_36)) # 1,736,313
-
-# 24 months rolling SD for the stock returns
-roll_sd_24 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=24, by.column=F, na.rm=T)
-
-roll_sd_24
-
-sum(is.na(roll_sd_24)) # 1,837,842
-
-# adding a volatility column to the data.frame
-
-BRIC.strategy$vola <- roll_sd_36
-
-tail(roll_sd_36)
-
-
-# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
-
-low_vol <- subset(roll_sd_36, cumsum(roll_sd_36) >= 0.2*sort(roll_sd_36, decreasing = F))
-
-
-length(low_vol)
-
-summary(low_vol)
-
-```
-
 
 ## 2.1 Raw code to remove NAs (BRIC.monthly)
 
@@ -197,9 +180,9 @@ summary(low_vol)
 # delete na's, set 0 and calculate important values
 # no RET.USD data, no MV or no LMV.USD
 BRIC.monthly <- BRIC.monthly %>%
-  drop_na(RET.USD,MV,MV.USD,LMV.USD)
-intermediate <- intermediate %>%
-  drop_na(MV.USD.June)
+  drop_na(RET.USD,MV,MV.USD,LMV.USD,MV.USD.June)
+BRIC.monthly <- BRIC.monthly %>%
+  drop_na(volatility)
 ```
 
 
@@ -285,6 +268,13 @@ NOTE: Here we "loose" around 600 000 rows!
 
 ```{r}
 BRIC.maindata <- inner_join(x = BRIC.monthly,y = BRIC.yearly, by = c("Id","hcjun" = "YEAR"))
+
+# Add a B/M column
+BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV
+# Add a OP/BE column
+BRIC.maindata$OPBE <- BRIC.maindata$OperatingProfits / BRIC.maindata$BookValue
+# Add a AssetChange column
+BRIC.maindata$AssetChange <- ((BRIC.maindata$TotalAssets - BRIC.maindata$TotalAssetsBefore)/BRIC.maindata$TotalAssetsBefore)
 ```
 
 ## 4.4 SMB: Determine size Breakpoints
@@ -348,9 +338,6 @@ Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE
 
 ## 4.5 HML: Determine B/M breakpoints
 ```{r}
-# Add a B/M column
-BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV
-
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
                                                                         bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
@@ -368,9 +355,6 @@ BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
 
 # 4.6 RMW: Determine OP/BE breakpoints
 ```{r}
-# Add a OP/BE column
-BRIC.maindata$OPBE <- BRIC.maindata$OperatingProfits / BRIC.maindata$BookValue
-
 # Determine the OP/BE breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(OPBE) & pf.size=="Big", .(opbe_bb30 = quantile(OPBE , probs = c(0.3), na.rm=T),
                                                                         opbe_bb70 = quantile(OPBE , probs = c(0.7), na.rm=T)),by=year]
@@ -391,9 +375,6 @@ BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
 # 4.7 Calculate CMA
 investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
 ```{r}
-# Add a AssetChange column
-BRIC.maindata$AssetChange <- ((BRIC.maindata$TotalAssets - BRIC.maindata$TotalAssetsBefore)/BRIC.maindata$TotalAssetsBefore)
-
 # Determine the AC breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(AssetChange) & pf.size=="Big", .(ac_bb30 = quantile(AssetChange , probs = c(0.3), na.rm=T),
                                                                         ac_bb70 = quantile(AssetChange , probs = c(0.7), na.rm=T)),by=year]
@@ -496,14 +477,14 @@ W05651: Common Shares Traded - Annual (Security)
 
 *TO DO's*:
 
-- Calculate Benchmark (market-cap weighted big stocks of the BRIC region)
-- Calculate break points on big stocks
-- decide on strategy and implement it
-- calculate portfolio characteristics
+- Calculate Benchmark (market-cap weighted big stocks of the BRIC region) || DONE
+- Calculate break points on big stocks || DONE
+- decide on strategy and implement it || WORKING
+- calculate portfolio characteristics 
 - visualize and showcase strategy performance
 - regress strategy PF on FF5FM and momentum for style exposure analysis
-- Literature
-- sorting A-shares ... how to identify them?
+- Literature || WIP
+- sorting A-shares ... how to identify them? || DONE
 
 
 *Project Dates*:
@@ -513,14 +494,7 @@ Final presentation: June 07
 *Strategy*:
 GDP weighted countries; stock level: max sharpe ratio, min volatility, equal sector weights or quotas, momentum?
 
-
 EDA
-
-```{r}
-# finding the number of NA values by column in the dataframe
-BRIC.monthly %>% mutate_all(is.na) %>% summarize_all(sum)
-
-```
 
 To DO: compute correlations by sector (10 sectors)
 
@@ -528,7 +502,6 @@ To DO: compute correlations by sector (10 sectors)
 # regular correlation matrix of all (four) numeric attributes
 cor(select(BRIC.static, where(is.numeric)))
 ```
-
 
 **Some conventions:**
 
@@ -541,163 +514,13 @@ Returns should be in USD
 Breakpoints (for Fama-French factors) should be calculated on big stocks (as in the
 excursus) but both small and big stocks go into the factor calculation.
 
-# Benchmark Calculation
-
-```{r}
-length(BRIC.static$Id)
-
-length(BRIC.yearly$Id)
-
-```
-
-```{r}
-# joining the monthly and the static dataframe by the Id column (retainig all rows of BRIC.yearly)
-df_combined <- left_join(x=BRIC.monthly,y=BRIC.static,by="Id")
 
 
-head(df_combined)
-
-
-
-```
-
-```{r}
-summary(df_combined$MV.USD)
-```
-
-
-```{r}
-## finding the number of NA values by column in the dataframe
-BRIC.yearly %>% mutate_all(is.na) %>% summarize_all(sum)
-```
-
-
-
-```{r}
-# markt cap (USD): WC07210
-
-## finding the number of NA values by column in the dataframe
-df_combined %>% mutate_all(is.na) %>% summarize_all(sum)
-```
-
-```{r}
-summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
-summary(country_mcap$mc_sum[country_mcap$country.x == "RUS"])
-summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
-summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
-```
-
-
-# Strategy
-
-
-```{r}
-#install.packages("plm")
-library(plm)
-library(dplyr)
-
-#strategy_df <- pdata.frame(BRIC.monthly,index = c("Id","ym"))
-
-### time series calculation pending
-
-# calculate sd of return by ym
-sd_help <- subset(BRIC.monthly,select = c("Id","ym","RET.USD"))
-sd_help <- na.omit(sd_help,cols = RET.USD) # may be deleted, if redundant
-
-# monthly basis
-number_of_stocks <- aggregate(.~ ym, data = sd_help,FUN = NROW) # alternative: sd_help %>% count(ym)
-mean_return <- aggregate(RET.USD ~ ym, data = sd_help,FUN = mean)
-sd_return <- aggregate(RET.USD ~ ym, data = sd_help, FUN = sd)
-var_return <- aggregate(RET.USD ~ ym, data = sd_help, FUN = var)
-
-dummy <- sd_help %>%
-  group_by(ym) %>%
-  summarize(mean(RET.USD),median(RET.USD),NROW(Id),sd(RET.USD),var(RET.USD))
-  colnames(dummy) <- c("ym","Mean","Median","n","sd","var")
-
-df1 <- inner_join(sd_help,dummy,by="ym")
-
-# sample variance
-df1$potOfRetMinμ <- ((df1$RET.USD - df1$Mean)^2)
-
-df2 <- df1 %>%
-  group_by(ym) %>%
-  summarize(sum(potOfRetMinμ))
-
-df3 <- inner_join(dummy,df2,by="ym")
-
-colnames(df3) <- c("ym","Mean","Median","n","sd","var","SumPotOfRetMinμ")
-
-df3$var_OtherCalc <- (1/(df3$n-1))*(df3$SumPotOfRetMinμ)
-df3$sd_OtherCalc <- sqrt(df3$var_OtherCalc)
-
-df4 <- inner_join(sd_help,df3,by = "ym")
-df4$Covariance <- (1/(df4$n-1))*(df4$SumPotOfRetMinμ)
-
-plot(mean_return$ym,mean_return$RET.USD)
-
-# yearly basis
-
-```
-
-# Strategy implementation on the balanced panel data (Multifactor etf)
-
-## Volatility (Min Vol)
-
-```{r}
-# creating a separate dataframe for the strategy implementation
-BRIC.strategy <- BRIC.monthly
-
-# creating a time series object by stock i.e. a return panel
-##BRIC.strategy.panel <- pdata.frame(x=BRIC.strategy, index = c("Id", "ym"))
-
-##ret_panel <- BRIC.strategy.panel["RET.USD"]
-
-##head(ret_panel)
-
-#ret_panel <- zoo(ret_panel) you can't convert it into a zoo object
-
-class(ret_panel)
-
-# 36 months rolling SD for the stock returns
-roll_sd_36 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=36, by.column=F, na.rm=F)
-
-roll_sd_36
-
-summary(roll_sd_36)
-
-length(roll_sd_36)
-
-sum(is.na(roll_sd_36)) # 1,736,313
-
-# 24 months rolling SD for the stock returns
-roll_sd_24 <- rollapply(data= zoo(BRIC.strategy$RET.USD), FUN = sd , width=24, by.column=F, na.rm=T)
-
-roll_sd_24
-
-sum(is.na(roll_sd_24)) # 1,837,842
-
-# adding a volatility column to the data.frame
-
-BRIC.strategy$vola <- roll_sd_36
-
-tail(roll_sd_36)
-
-
-# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
-
-low_vol <- subset(roll_sd_36, cumsum(roll_sd_36) >= 0.2*sort(roll_sd_36, decreasing = F))
-
-
-length(low_vol)
-
-summary(low_vol)
-
-```
-# Multifactor Portfolio sort
+#5.Multifactor Portfolio sort
 
 https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
 
+##5.1 Value Breakpoints
 ```{r}
 BRIC.mfstrategy <- BRIC.maindata
 
@@ -706,13 +529,27 @@ colnames(BRIC.mfstrategy)
 ## Value factor
 ## creating a large cap and high B/M ratio column (large cap value)
 
-# subsetting the large cap stocks only
+# subsetting the large cap stocks only (rebalanced yearly)
 BRIC.mfstrategy <- subset(BRIC.mfstrategy, pf.size == "Big" )
 
 # subsetting only value stocks (cutoff = median) Look up CUTOFF details
-BRIC.mfstrategy <- subset(BRIC.mfstrategy, BM > median(BM))
+# Determine the B/M breakpoints based on big stocks only
+hlpvariable2 <- BRIC.maindata[month==7, .(median = quantile(BM , probs = c(0.5), na.rm=T)),by=year]
+              
+# Merge the B/M portfolio allocation back from July Y to June Y+1
+BRIC.mfstrategy <- merge(BRIC.mfstrategy,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+BRIC.mfstrategy[ , pf.value := ifelse(BM>median,"Value",(ifelse(BM<=median,"Growth",NA)))]
 
 
+table(BRIC.mfstrategy$pf.value)
+```
+
+##5.2 Momentum
+```{r}
 ### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
 
 ## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
@@ -815,77 +652,43 @@ ret_tbl %>%
 ```
 
 
-
-# Important plots
-
-Plot factor returns (performance by factor and/or by country)
-Plot portfolio performance against the benchmark 
-
+# Strategy implementation on the balanced panel data (Multifactor etf)
 
 
 ```{r}
-# sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
 
-# RUSSIA
-# 90% of the market cap in Russia: 
-0.9*country_mcap$mc_sum[4]
+# creating a separate dataframe for the strategy implementation
+BRIC.strategy <- BRIC.maindata
 
-# subsetting all Russian stocks
-russian_stocks <- as.data.frame(mcap_country) %>%
-   filter(country.x == "RUS") 
+# ROLLING VOLATILITY COLUMN for all stock returns
 
-# sorting the dataframe of russian stocks by decreasing market cap
-russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
- 
-# filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
-big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
+# NEW approach: creating a column for a 36 months rolling SD for the stock returns 
+##BRIC.strategy <- BRIC.strategy[, vol := lag(rollapplyr(RET.USD, 36, sd, fill = NA, partial = 12),1), by =Id]
 
-big_stocks_RUS
 
+summary(BRIC.strategy$vol) 
+
+sum(is.na(BRIC.strategy$vol)) # 2,328,303
+
+# LOW VOLATILITY STRATEGY
+
+# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
+
+# 20% quantile of the stocks sorted by increasing volatility
+quantile(sort(BRIC.strategy$vol, decreasing =F), probs=c(0.2,0.8), na.rm = T)
+# the breaking point (the 20% quantile value) is 11.06796
+
+# splitting the range of the data in the vol column into intervals; breaks: cut points
+quantiles <- cut(BRIC.strategy$vol , breaks=c(0,11.06796), include.lowest=TRUE, dig.lab=6)
+summary(quantiles) # no. of rows withing the lowest 20% vol stocks: 227,121
+
+
+# selecting the low vol stocks
+low_vol <- subset(BRIC.strategy, vol <= 11.06796)
+
+summary(low_vol) # row dimension: 227,121 check!
 
 
 ```
 
-
-idea:
-
-big_stocks <- mcap_country %>%
-  select(ISIN) %>%
- sort(mcap_country$WC07210, decreasing=T)  %>%
-  filter(mcap_country$WC07210 <= 0.9*country_mcap$mc_sum)
-
-big_stocks
-
-```{r}
-# sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
-
-# RUSSIA
-# 90% of the market cap in Russia: 
-0.9*country_mcap$mc_sum[4]
-
-# subsetting all Russian stocks
-russian_stocks <- as.data.frame(mcap_country) %>%
-   filter(country.x == "RUS") 
-
-# sorting the dataframe of russian stocks by decreasing market cap
-russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
- 
-# filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
-big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
-
-big_stocks_RUS
-
-
-
-  
-```
-
-
-# Calculating the size portfolios
-
-
-# Important plots
-
-Plot factor returns (performance by factor and/or by country)
-Plot portfolio performance against the benchmark 
-
+$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
