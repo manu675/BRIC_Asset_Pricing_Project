@@ -336,7 +336,7 @@ Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE
 
 ![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
 
-## 4.5 HML: Determine B/M breakpoints
+##4.5 HML: Determine B/M breakpoints
 ```{r}
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
@@ -353,7 +353,7 @@ BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_b
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
 ```
 
-# 4.6 RMW: Determine OP/BE breakpoints
+##4.6 RMW: Determine OP/BE breakpoints
 ```{r}
 # Determine the OP/BE breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(OPBE) & pf.size=="Big", .(opbe_bb30 = quantile(OPBE , probs = c(0.3), na.rm=T),
@@ -372,7 +372,7 @@ BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
 
 ```
 
-# 4.7 Calculate CMA
+##4.7 Calculate CMA
 investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
 ```{r}
 # Determine the AC breakpoints based on big stocks only
@@ -394,7 +394,7 @@ BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
 
 https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_factors_2x3.html
 
-## 4.8 Calculate Factors
+##4.8 Calculate Factors
 ```{r}
 
 portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
@@ -518,38 +518,58 @@ excursus) but both small and big stocks go into the factor calculation.
 
 #5.Multifactor Portfolio sort
 
-https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
-
 ##5.1 Value Breakpoints
 ```{r}
-BRIC.mfstrategy <- BRIC.maindata
+BRIC.strategy <- BRIC.maindata
 
-colnames(BRIC.mfstrategy)
+colnames(BRIC.strategy)
 
 ## Value factor
 ## creating a large cap and high B/M ratio column (large cap value)
 
 # subsetting the large cap stocks only (rebalanced yearly)
-BRIC.mfstrategy <- subset(BRIC.mfstrategy, pf.size == "Big" )
+BRIC.strategy <- subset(BRIC.strategy, pf.size == "Big" )
 
 # subsetting only value stocks (cutoff = median) Look up CUTOFF details
-# Determine the B/M breakpoints based on big stocks only
+# Determine the value breakpoints
 hlpvariable2 <- BRIC.maindata[month==7, .(median = quantile(BM , probs = c(0.5), na.rm=T)),by=year]
               
-# Merge the B/M portfolio allocation back from July Y to June Y+1
-BRIC.mfstrategy <- merge(BRIC.mfstrategy,hlpvariable2,
+# Merge the value portfolio allocation back from July Y to June Y+1
+BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
                        by.x=c("hcjun"),
                        by.y=c("year"),
                        all.x=T)
 
-BRIC.mfstrategy[ , pf.value := ifelse(BM>median,"Value",(ifelse(BM<=median,"Growth",NA)))]
+BRIC.strategy[ , pf.value := ifelse(BM>median,"Value",(ifelse(BM<=median,"Growth",NA)))]
 
-
-table(BRIC.mfstrategy$pf.value)
+table(BRIC.strategy$pf.value)
+dim(BRIC.strategy)
 ```
 
-##5.2 Momentum
+##5.2 Low Vol
+Strategy implementation on the balanced panel data (Multifactor etf)
 ```{r}
+
+# Determine the low_vol breakpoints based on big stocks only
+hlpvariable2 <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
+              
+# Merge the low_vol portfolio allocation back from July Y to June Y+1
+BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(volatility<=lower_20,"LowVol",NA)))]
+
+table(BRIC.strategy$pf.low_vol)
+dim(BRIC.strategy)
+
+```
+$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
+##5.3 Momentum
+```{r}
+# https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
+
 ### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
 
 ## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
@@ -561,30 +581,36 @@ table(BRIC.mfstrategy$pf.value)
 # their returns in the past J months.
 
 # creating a 12 months of past winners
-
-ret_tbl <- subset(BRIC.mfstrategy, select= c("RET.USD","Id","ym"))
-
+ret_tbl <- subset(BRIC.strategy, select= c("RET.USD","Id","ym"))
 # creating the 1st lag by id 
-lag_1id <- shift(BRIC.mfstrategy$RET.USD,n=1)
-
-lag_1id
-
+lag_1id <- shift(BRIC.strategy$RET.USD,n=1)
 # creating the 12th lag by id 
-lag_12id <- shift(BRIC.mfstrategy$RET.USD,n=12)
+lag_12id <- shift(BRIC.strategy$RET.USD,n=12)
 
-
-##lag_12id <- ret_tbl %>%
-##   group_by(Id) %>% 
-##   mutate(shift(RET.USD,n=12), na.rm =TRUE)
-
-
-ret_tbl$mon_return <-  BRIC.mfstrategy$RET.USD
+ret_tbl$mon_return <-  BRIC.strategy$RET.USD
 ret_tbl$skip_mon_return <- lag_1id
 ret_tbl$twelve_mon_return <- lag_12id
 
+---------------------------------
+  
+ret_tbl <- subset(BRIC.strategy, select= c("Id","ym","RET.USD"))
+
+# creating the 1st lag by id 
+ret_tbl[, lag_1_vol := lag(RET.USD,1), by =Id]
+
+# creating the 12th lag by id 
+ret_tbl[, lag_12_vol := lag(RET.USD,12), by =Id]
+
+colnames(ret_tbl)[3] <- "mon_return"
+colnames(ret_tbl)[4] <- "skip_mon_return"
+colnames(ret_tbl)[5] <- "twelve_mon_return"
 
 head(ret_tbl)
 
+class(ret_tbl$mon_return)
+summary(ret_tbl)
+
+--------------------------------------
 
 # We want to add a layer of logic that says, count the number of positive months over the 
 # preceding 12 months, and if equal to at least 8, encode a 1, else encode a 0
@@ -651,44 +677,13 @@ ret_tbl %>%
   mutate(prop = prop.table(n))
 ```
 
-
-# Strategy implementation on the balanced panel data (Multifactor etf)
-
-
+##5.4 Filtering for strategy requirements
 ```{r}
+# filtering for high value stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
 
-# creating a separate dataframe for the strategy implementation
-BRIC.strategy <- BRIC.maindata
-
-# ROLLING VOLATILITY COLUMN for all stock returns
-
-# NEW approach: creating a column for a 36 months rolling SD for the stock returns 
-##BRIC.strategy <- BRIC.strategy[, vol := lag(rollapplyr(RET.USD, 36, sd, fill = NA, partial = 12),1), by =Id]
-
-
-summary(BRIC.strategy$vol) 
-
-sum(is.na(BRIC.strategy$vol)) # 2,328,303
-
-# LOW VOLATILITY STRATEGY
-
-# LOW VOL subset of stocks (20% of stocks with the lowest volatility)
-
-# 20% quantile of the stocks sorted by increasing volatility
-quantile(sort(BRIC.strategy$vol, decreasing =F), probs=c(0.2,0.8), na.rm = T)
-# the breaking point (the 20% quantile value) is 11.06796
-
-# splitting the range of the data in the vol column into intervals; breaks: cut points
-quantiles <- cut(BRIC.strategy$vol , breaks=c(0,11.06796), include.lowest=TRUE, dig.lab=6)
-summary(quantiles) # no. of rows withing the lowest 20% vol stocks: 227,121
-
-
-# selecting the low vol stocks
-low_vol <- subset(BRIC.strategy, vol <= 11.06796)
-
-summary(low_vol) # row dimension: 227,121 check!
-
+# filtering for lowVol stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 
 ```
 
-$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
