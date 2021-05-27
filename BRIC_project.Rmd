@@ -146,13 +146,57 @@ BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
 at this point of time the data sheet is still balanced, therefore we can use the shift function
 ```{r}
 # add a new column for the lagged MV.USD (this is the MV.USD from the previous month) 
-BRIC.monthly[, lag.value:=c(1, MV.USD[-.N]), by=Id]
-# rename column to LMV.USD
-colnames(BRIC.monthly)[14] <- "LMV.USD"
+BRIC.monthly[, LMV.USD := lag((MV.USD),1), by =Id]
+
 # add a new column for volatility
-BRIC.monthly <- BRIC.monthly[, vol := lag(rollapplyr(RET.USD, 36, sd, fill = NA, partial = 12),1), by =Id]
-# rename column to Volatility
-colnames(BRIC.monthly)[15] <- "volatility"
+BRIC.monthly[, volatility := lag(rollapplyr(RET.USD, 36, sd, fill = NA, partial = 12),1), by =Id]
+
+# add 12 new columns for last 12 months returns
+BRIC.monthly[, lag1 := lag((RET.USD),1), by =Id]
+BRIC.monthly[, lag2 := lag((RET.USD),2), by =Id]
+BRIC.monthly[, lag3 := lag((RET.USD),3), by =Id]
+BRIC.monthly[, lag4 := lag((RET.USD),4), by =Id]
+BRIC.monthly[, lag5 := lag((RET.USD),5), by =Id]
+BRIC.monthly[, lag6 := lag((RET.USD),6), by =Id]
+BRIC.monthly[, lag7 := lag((RET.USD),7), by =Id]
+BRIC.monthly[, lag8 := lag((RET.USD),8), by =Id]
+BRIC.monthly[, lag9 := lag((RET.USD),9), by =Id]
+BRIC.monthly[, lag10 := lag((RET.USD),10), by =Id]
+BRIC.monthly[, lag11 := lag((RET.USD),11), by =Id]
+BRIC.monthly[, lag12 := lag((RET.USD),12), by =Id]
+
+# negative values are replaced to 0
+BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1<0,0)
+BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,BRIC.monthly$lag2<0,0)
+BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,BRIC.monthly$lag3<0,0)
+BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,BRIC.monthly$lag4<0,0)
+BRIC.monthly$lag5 <- replace(BRIC.monthly$lag5,BRIC.monthly$lag5<0,0)
+BRIC.monthly$lag6 <- replace(BRIC.monthly$lag6,BRIC.monthly$lag6<0,0)
+BRIC.monthly$lag7 <- replace(BRIC.monthly$lag7,BRIC.monthly$lag7<0,0)
+BRIC.monthly$lag8 <- replace(BRIC.monthly$lag8,BRIC.monthly$lag8<0,0)
+BRIC.monthly$lag9 <- replace(BRIC.monthly$lag9,BRIC.monthly$lag9<0,0)
+BRIC.monthly$lag10 <- replace(BRIC.monthly$lag10,BRIC.monthly$lag10<0,0)
+BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,BRIC.monthly$lag11<0,0)
+BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,BRIC.monthly$lag12<0,0)
+
+# positive values are replaced to 1
+BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1>0,1)
+BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,BRIC.monthly$lag2>0,1)
+BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,BRIC.monthly$lag3>0,1)
+BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,BRIC.monthly$lag4>0,1)
+BRIC.monthly$lag5 <- replace(BRIC.monthly$lag5,BRIC.monthly$lag5>0,1)
+BRIC.monthly$lag6 <- replace(BRIC.monthly$lag6,BRIC.monthly$lag6>0,1)
+BRIC.monthly$lag7 <- replace(BRIC.monthly$lag7,BRIC.monthly$lag7>0,1)
+BRIC.monthly$lag8 <- replace(BRIC.monthly$lag8,BRIC.monthly$lag8>0,1)
+BRIC.monthly$lag9 <- replace(BRIC.monthly$lag9,BRIC.monthly$lag9>0,1)
+BRIC.monthly$lag10 <- replace(BRIC.monthly$lag10,BRIC.monthly$lag10>0,1)
+BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,BRIC.monthly$lag11>0,1)
+BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,BRIC.monthly$lag12>0,1)
+
+BRIC.monthly$lagSum <- BRIC.monthly$lag1 + BRIC.monthly$lag2 + BRIC.monthly$lag3 + BRIC.monthly$lag4 + BRIC.monthly$lag5 + BRIC.monthly$lag6 + BRIC.monthly$lag7 + BRIC.monthly$lag8 + BRIC.monthly$lag9 + BRIC.monthly$lag10 + BRIC.monthly$lag11 + + BRIC.monthly$lag12
+
+BRIC.monthly[ , pf.momentum := ifelse(lagSum>=8,"Winner",ifelse(lagSum < 8,"Looser",NA))]
+
 # delete all entrys before July 1994
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-07-29" & Date <= "2019-02-01")
 
@@ -166,12 +210,12 @@ intermediate <- filter(BRIC.monthly,BRIC.monthly$month == 7)
 # minimise for join
 intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","volatility","ym","hcjun","year","month"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
 
 # inner join automatically deletes values where MV.USD.June is not available
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","volatility","ym","hcjun","year","month"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
 ```
 
 ## 2.1 Raw code to remove NAs (BRIC.monthly)
@@ -679,11 +723,15 @@ ret_tbl %>%
 
 ##5.4 Filtering for strategy requirements
 ```{r}
-# filtering for high value stocks
-BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
+# filtering for growth stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.value == "Growth" )
 
 # filtering for lowVol stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 
+# filtering for winner stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
+
+summary(BRIC.strategy)
 ```
 
