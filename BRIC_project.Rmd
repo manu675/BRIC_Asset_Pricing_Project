@@ -612,6 +612,13 @@ dim(BRIC.strategy)
 $$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
 ##5.3 Momentum
 ```{r}
+
+#calculations done above!!!!
+
+
+
+
+
 # https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
 
 ### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
