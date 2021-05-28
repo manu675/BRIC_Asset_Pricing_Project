@@ -729,6 +729,7 @@ dim(BRIC.strategy)
 $$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
 
 
+
 ##5.3 Filtering for strategy requirements
 ```{r}
 # filtering for growth stocks
@@ -831,12 +832,15 @@ strategy.no_stocks_by_country <- aggregate(Id ~year+country.x, data=intermediate
 
 strategy.no_stocks_by_country
 
-# annualized std per year
+# annualized std per year (weight per stock * stdev per stock )
 
 intermediate_df <- BRIC.strategy %>% select(c("Id","year","volatility"))
 
+# annualized volatility by stock per time point
 BRIC.strategy$vol_an <- BRIC.strategy$volatility*sqrt(12)
 
+
+# covariance matrix for the stock returns ()
 
 
 
@@ -852,4 +856,57 @@ pf_mean_ex_return_ew <- weighted.mean(x, wt)
 # plot of the excess returns 
 a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
 a
+```
+
+
+
+## 5.6 Loading GDP Data
+```{r}
+# load data sheet from French's website
+GDPData <- read_csv("GDP_raw_data.csv", 
+     skip = 3)
+
+# rename column
+colnames(GDPData)[2] <- "CountryCode"
+
+# filter on BRIC countries
+GDPData <- GDPData %>% filter(CountryCode == "IND" | CountryCode == "CHN" | CountryCode == "BRA" | CountryCode == "RUS")
+
+# transpose data frame and keep row names
+GDPData <- as.data.frame(t(GDPData))
+setDT(GDPData, keep.rownames = TRUE)[]
+
+colnames(GDPData)[1] <- "year"
+colnames(GDPData)[2] <- "BRA"
+colnames(GDPData)[3] <- "CHN"
+colnames(GDPData)[4] <- "IND"
+colnames(GDPData)[5] <- "RUS"
+
+# shorting data frame
+GDPData <- GDPData %>% filter(year >= 1994 & year < 2020 )
+
+class(GDPData$BRA)
+
+# convert factor type objects to numeric objects
+GDPData$BRA <- as.numeric(as.character(GDPData$BRA))
+GDPData$CHN <- as.numeric(as.character(GDPData$CHN))
+GDPData$IND <- as.numeric(as.character(GDPData$IND))
+GDPData$RUS <- as.numeric(as.character(GDPData$RUS))
+GDPData$year <- as.numeric(as.character(GDPData$year))
+
+# get the sum of all GDPs
+GDPData$SumOfGDP <- GDPData$BRA + GDPData$CHN + GDPData$IND + GDPData$RUS
+
+# get % of total GDP per country
+GDPData$BRA_w <- GDPData$BRA/GDPData$SumOfGDP
+GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
+GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
+GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
+
+
+
+# plot of GDP weights over time
+overview <- ggplot(data = GDPData) + geom_line(aes(x = year, y = BRA_w)) + geom_line(aes(x = year, y = CHN_w, color="red")) + geom_line(aes(x = year, y = IND_w, color="blue")) + geom_line(aes(x = year, y = RUS_w, color="green"))
+overview
+
 ```
