@@ -71,6 +71,122 @@ changing the WD
 # big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
 # 
 # big_stocks_RUS
+
+
+
+#calculations done above!!!!
+
+
+
+
+
+# https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
+
+### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
+
+## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
+
+# Specifically, a strategy that selects stocks on the basis of returns over
+# the past J months and holds them for K months (we will refer to this as a
+# J-month/K-month strategy) is constructed as follows: At the beginning of
+# each month t the securities are ranked in ascending order on the basis of
+# their returns in the past J months.
+
+# creating a 12 months of past winners
+# ret_tbl <- subset(BRIC.strategy, select= c("RET.USD","Id","ym"))
+# # creating the 1st lag by id 
+# lag_1id <- shift(BRIC.strategy$RET.USD,n=1)
+# # creating the 12th lag by id 
+# lag_12id <- shift(BRIC.strategy$RET.USD,n=12)
+# 
+# ret_tbl$mon_return <-  BRIC.strategy$RET.USD
+# ret_tbl$skip_mon_return <- lag_1id
+# ret_tbl$twelve_mon_return <- lag_12id
+# 
+# ---------------------------------
+#   
+# ret_tbl <- subset(BRIC.strategy, select= c("Id","ym","RET.USD"))
+# 
+# # creating the 1st lag by id 
+# ret_tbl[, lag_1_vol := lag(RET.USD,1), by =Id]
+# 
+# # creating the 12th lag by id 
+# ret_tbl[, lag_12_vol := lag(RET.USD,12), by =Id]
+# 
+# colnames(ret_tbl)[3] <- "mon_return"
+# colnames(ret_tbl)[4] <- "skip_mon_return"
+# colnames(ret_tbl)[5] <- "twelve_mon_return"
+# 
+# head(ret_tbl)
+# 
+# class(ret_tbl$mon_return)
+# summary(ret_tbl)
+
+--------------------------------------
+
+# We want to add a layer of logic that says, count the number of positive months over the 
+# preceding 12 months, and if equal to at least 8, encode a 1, else encode a 0
+
+# First, we label each month as positive or negative. If positive, label it 1, if negative label it 0. That will allow us to sum the positive months.
+
+# ret_tbl %>% 
+#   slice(-1:-2) %>% 
+#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+#                              TRUE ~ 1))                    
+# 
+# # Next, we find the rolling sum of the pos_neg column
+# ret_tbl %>% 
+#   slice(-1:-2) %>% 
+#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+#                              TRUE ~ 1),
+#          pos_sum = rollsum(pos_neg, 12,                    fill = NA,                    align = "right")) %>% 
+#   slice(12:16)
+# 
+# # If the pos_sum is greater than or equal to 8, we label that period a 1. I'll call that label 
+# # the consist_indicator
+# 
+# ret_tbl %>% 
+#   slice(-1:-2) %>% 
+#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+#                              TRUE ~ 1),
+#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+#                                     TRUE ~ 0)) %>% 
+#   select(Id, ym, skip_mon_return, pos_neg, pos_sum,                  consist_indicator, twelve_mon_return) %>% 
+#   slice(12:16)
+
+
+# We now have an indicator for the consistency of the momentum. We can code up an algorithm that # says if twelve_mon_return is positive and if consist_indicator is at least 8, then hold the 
+# asset for the following month, and code that time period as 'quality'
+
+# ret_tbl %>% 
+#   slice(-1:-2) %>% 
+#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+#                              TRUE ~ 1),
+#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+#                                     TRUE ~ 0),
+#          strat_returns = if_else(lag(twelve_mon_return) > 0 &                                        lag(consist_indicator) == 1,
+#                                  mon_return, 0),
+#          strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
+#                                  "quality", "not_quality")) %>% 
+#           na.omit()
+# 
+# 
+# ret_tbl %>% 
+#   slice(-1:-2) %>% 
+#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
+#                              TRUE ~ 1),
+#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
+#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
+#                                     TRUE ~ 0),
+#          strat_returns = if_else(lag(twelve_mon_return) > 0 &                                  lag(consist_indicator) == 1,
+#                                  mon_return, 0),
+#          strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
+#                                  "quality", "not_quality")) %>% 
+#   na.omit() %>% 
+#   count(strat_label) %>%         
+#   mutate(prop = prop.table(n))
 ```
 
 # Loading Libraries
@@ -561,6 +677,8 @@ excursus) but both small and big stocks go into the factor calculation.
 
 #5.Multifactor Portfolio sort
 
+Momentum sorting is done during #2.
+
 ##5.1 Value Breakpoints
 ```{r}
 BRIC.strategy <- BRIC.maindata
@@ -609,125 +727,9 @@ dim(BRIC.strategy)
 
 ```
 $$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
-##5.3 Momentum
-```{r}
-
-#calculations done above!!!!
 
 
-
-
-
-# https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
-
-### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
-
-## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
-
-# Specifically, a strategy that selects stocks on the basis of returns over
-# the past J months and holds them for K months (we will refer to this as a
-# J-month/K-month strategy) is constructed as follows: At the beginning of
-# each month t the securities are ranked in ascending order on the basis of
-# their returns in the past J months.
-
-# creating a 12 months of past winners
-ret_tbl <- subset(BRIC.strategy, select= c("RET.USD","Id","ym"))
-# creating the 1st lag by id 
-lag_1id <- shift(BRIC.strategy$RET.USD,n=1)
-# creating the 12th lag by id 
-lag_12id <- shift(BRIC.strategy$RET.USD,n=12)
-
-ret_tbl$mon_return <-  BRIC.strategy$RET.USD
-ret_tbl$skip_mon_return <- lag_1id
-ret_tbl$twelve_mon_return <- lag_12id
-
----------------------------------
-  
-ret_tbl <- subset(BRIC.strategy, select= c("Id","ym","RET.USD"))
-
-# creating the 1st lag by id 
-ret_tbl[, lag_1_vol := lag(RET.USD,1), by =Id]
-
-# creating the 12th lag by id 
-ret_tbl[, lag_12_vol := lag(RET.USD,12), by =Id]
-
-colnames(ret_tbl)[3] <- "mon_return"
-colnames(ret_tbl)[4] <- "skip_mon_return"
-colnames(ret_tbl)[5] <- "twelve_mon_return"
-
-head(ret_tbl)
-
-class(ret_tbl$mon_return)
-summary(ret_tbl)
-
---------------------------------------
-
-# We want to add a layer of logic that says, count the number of positive months over the 
-# preceding 12 months, and if equal to at least 8, encode a 1, else encode a 0
-
-# First, we label each month as positive or negative. If positive, label it 1, if negative label it 0. That will allow us to sum the positive months.
-
-ret_tbl %>% 
-  slice(-1:-2) %>% 
-  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-                             TRUE ~ 1))                    
-
-# Next, we find the rolling sum of the pos_neg column
-ret_tbl %>% 
-  slice(-1:-2) %>% 
-  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-                             TRUE ~ 1),
-         pos_sum = rollsum(pos_neg, 12,                    fill = NA,                    align = "right")) %>% 
-  slice(12:16)
-
-# If the pos_sum is greater than or equal to 8, we label that period a 1. I'll call that label 
-# the consist_indicator
-
-ret_tbl %>% 
-  slice(-1:-2) %>% 
-  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-                             TRUE ~ 1),
-         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-                                    TRUE ~ 0)) %>% 
-  select(Id, ym, skip_mon_return, pos_neg, pos_sum,                  consist_indicator, twelve_mon_return) %>% 
-  slice(12:16)
-
-
-# We now have an indicator for the consistency of the momentum. We can code up an algorithm that # says if twelve_mon_return is positive and if consist_indicator is at least 8, then hold the 
-# asset for the following month, and code that time period as 'quality'
-
-ret_tbl %>% 
-  slice(-1:-2) %>% 
-  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-                             TRUE ~ 1),
-         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-                                    TRUE ~ 0),
-         strat_returns = if_else(lag(twelve_mon_return) > 0 &                                        lag(consist_indicator) == 1,
-                                 mon_return, 0),
-         strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
-                                 "quality", "not_quality")) %>% 
-          na.omit()
-
-
-ret_tbl %>% 
-  slice(-1:-2) %>% 
-  mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-                             TRUE ~ 1),
-         pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-         consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-                                    TRUE ~ 0),
-         strat_returns = if_else(lag(twelve_mon_return) > 0 &                                  lag(consist_indicator) == 1,
-                                 mon_return, 0),
-         strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
-                                 "quality", "not_quality")) %>% 
-  na.omit() %>% 
-  count(strat_label) %>%         
-  mutate(prop = prop.table(n))
-```
-
-##5.4 Filtering for strategy requirements
+##5.3 Filtering for strategy requirements
 ```{r}
 # filtering for growth stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.value == "Growth" )
@@ -738,23 +740,44 @@ BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 # filtering for winner stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
 
+dim(BRIC.strategy)
+
 summary(BRIC.strategy)
 ```
 
-##5.5 Calculate portfolio returns
+#6 Calculating portfolio characteristics
+
+All teams should perform the following analyses:
+
+- A clear description of the strategy design (approach, weighting, rebalancing,...)
+- Portfolio characteristics (ann. turnover, avg. number of stocks, portfolio concentration)
+- Performance statistics (return, volatility, Sharpe ratio, outperformance, tracking error,
+information ratio, all annualized)
+- Visualize cumulative performance and outperformance
+- Regress portfolio performance on FF5FM + Momentum for style analysis
+- Provide the time-series of the your strategy, the benchmark, and Fama-French factors as
+RData file
+
+## 6.1 Annualized PF returns 
+
+Brainstorming:
+
+- Correlation matrix across factors
+- annualized mean return (portfolio + by country)
+
 ```{r}
 
-# BRIC
+# entire BRIC region returns (arithmetic average *12)
 # per year
 strategy.retBricY <- aggregate(RMRF ~ hcjun, data = BRIC.strategy,FUN = mean)
-strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12
+strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12 
 # per month
 strategy.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.strategy,FUN = mean)
 
-# per country
+# per country returns
 # per year
 strategy.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = BRIC.strategy,FUN = mean)
-strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12
+strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12 #annualizing the returns
 # per month
 strategy.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.strategy,FUN = mean)
 
@@ -767,7 +790,66 @@ colnames(strategy_BRIC)[4] <- "MonthlyExcessReturn"
 colnames(strategy_Country)[3] <- "YearlyExcessReturn"
 colnames(strategy_Country)[5] <- "MonthlyExcessReturn"
 
-# plot
+# annualized mean excess return for the entire period by country
+strategy.total_retCountryY <- aggregate(RMRF ~ country.x, data=strategy.retCountryY, FUN=mean)
+
+strategy.total_retCountryY
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.13, 0.60,0.17,0.10) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_gdp <- weighted.mean(x, wt)
+
+pf_mean_ex_return_gdp # 18.50333 % p.a.
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_ew <- weighted.mean(x, wt)
+
+pf_mean_ex_return_ew # 18.1691 % p.a.
+
+# average number of stocks in the PF over time period
+
+intermediate_df <- BRIC.strategy %>% select(c("Id","year"))
+
+strategy.no_stocks <- aggregate(Id ~year, data=intermediate_df, FUN=function(x) length(unique(x)))
+
+strategy.no_stocks # dataframe with no of stocks by year (for the entire BRIC region)
+
+mean(strategy.no_stocks$Id) # 99.56522 (average # of stocks per year)
+
+## extra info : by country and by year
+
+intermediate_df <- BRIC.strategy %>% select(c("Id","year","country.x"))
+
+strategy.no_stocks_by_country <- aggregate(Id ~year+country.x, data=intermediate_df, FUN=function(x) length(unique(x)))
+
+strategy.no_stocks_by_country
+
+# annualized std per year
+
+intermediate_df <- BRIC.strategy %>% select(c("Id","year","volatility"))
+
+BRIC.strategy$vol_an <- BRIC.strategy$volatility*sqrt(12)
+
+
+
+
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_ew <- weighted.mean(x, wt)
+
+
+# plot of the excess returns 
 a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
 a
 ```
