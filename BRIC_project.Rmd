@@ -166,18 +166,19 @@ BRIC.monthly[, lag11 := lag((RET.USD),11), by =Id]
 BRIC.monthly[, lag12 := lag((RET.USD),12), by =Id]
 
 # negative values are replaced to 0
-BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1<0,0)
-BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,BRIC.monthly$lag2<0,0)
-BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,BRIC.monthly$lag3<0,0)
-BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,BRIC.monthly$lag4<0,0)
-BRIC.monthly$lag5 <- replace(BRIC.monthly$lag5,BRIC.monthly$lag5<0,0)
-BRIC.monthly$lag6 <- replace(BRIC.monthly$lag6,BRIC.monthly$lag6<0,0)
-BRIC.monthly$lag7 <- replace(BRIC.monthly$lag7,BRIC.monthly$lag7<0,0)
-BRIC.monthly$lag8 <- replace(BRIC.monthly$lag8,BRIC.monthly$lag8<0,0)
-BRIC.monthly$lag9 <- replace(BRIC.monthly$lag9,BRIC.monthly$lag9<0,0)
-BRIC.monthly$lag10 <- replace(BRIC.monthly$lag10,BRIC.monthly$lag10<0,0)
-BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,BRIC.monthly$lag11<0,0)
-BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,BRIC.monthly$lag12<0,0)
+#ifelse(BRIC.monthly$lag1<=0,0,ifelse(BRIC.monthly$lag1>0,1,NA))
+BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1<=0,0)
+BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,BRIC.monthly$lag2<=0,0)
+BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,BRIC.monthly$lag3<=0,0)
+BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,BRIC.monthly$lag4<=0,0)
+BRIC.monthly$lag5 <- replace(BRIC.monthly$lag5,BRIC.monthly$lag5<=0,0)
+BRIC.monthly$lag6 <- replace(BRIC.monthly$lag6,BRIC.monthly$lag6<=0,0)
+BRIC.monthly$lag7 <- replace(BRIC.monthly$lag7,BRIC.monthly$lag7<=0,0)
+BRIC.monthly$lag8 <- replace(BRIC.monthly$lag8,BRIC.monthly$lag8<=0,0)
+BRIC.monthly$lag9 <- replace(BRIC.monthly$lag9,BRIC.monthly$lag9<=0,0)
+BRIC.monthly$lag10 <- replace(BRIC.monthly$lag10,BRIC.monthly$lag10<=0,0)
+BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,BRIC.monthly$lag11<=0,0)
+BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,BRIC.monthly$lag12<=0,0)
 
 # positive values are replaced to 1
 BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1>0,1)
@@ -224,9 +225,7 @@ BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.U
 # delete na's, set 0 and calculate important values
 # no RET.USD data, no MV or no LMV.USD
 BRIC.monthly <- BRIC.monthly %>%
-  drop_na(RET.USD,MV,MV.USD,LMV.USD,MV.USD.June)
-BRIC.monthly <- BRIC.monthly %>%
-  drop_na(volatility)
+  drop_na(RET.USD,MV,MV.USD,LMV.USD,MV.USD.June,volatility,momentum)
 ```
 
 
@@ -366,13 +365,13 @@ benchmark.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.be
 benchmark_BRIC <- inner_join(benchmark.retBricY,benchmark.retBricM,by = "hcjun")
 benchmark_Country <- inner_join(benchmark.retCountryY,benchmark.retCountryM,by = c("hcjun","country.x"))
 # rename columns
-colnames(benchmark_BRIC)[2] <- "YearlyReturn"
-colnames(benchmark_BRIC)[4] <- "MonthlyReturn"
-colnames(benchmark_Country)[3] <- "YearlyReturn"
-colnames(benchmark_Country)[5] <- "MonthlyReturn"
+colnames(benchmark_BRIC)[2] <- "YearlyExcessReturn"
+colnames(benchmark_BRIC)[4] <- "MonthlyExcessReturn"
+colnames(benchmark_Country)[3] <- "YearlyExcessReturn"
+colnames(benchmark_Country)[5] <- "MonthlyExcessReturn"
 
 # plot
-a <- ggplot(data = benchmark_BRIC) + geom_line(aes(x = ym, y = MonthlyReturn)) + geom_line(aes(x = ym, y = YearlyReturn, color="red"))
+a <- ggplot(data = benchmark_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
 a
 ```
 
@@ -742,3 +741,33 @@ BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
 summary(BRIC.strategy)
 ```
 
+##5.5 Calculate portfolio returns
+```{r}
+
+# BRIC
+# per year
+strategy.retBricY <- aggregate(RMRF ~ hcjun, data = BRIC.strategy,FUN = mean)
+strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12
+# per month
+strategy.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.strategy,FUN = mean)
+
+# per country
+# per year
+strategy.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = BRIC.strategy,FUN = mean)
+strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12
+# per month
+strategy.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.strategy,FUN = mean)
+
+# single dataframe
+strategy_BRIC <- inner_join(strategy.retBricY,strategy.retBricM,by = "hcjun")
+strategy_Country <- inner_join(strategy.retCountryY,strategy.retCountryM,by = c("hcjun","country.x"))
+# rename columns
+colnames(strategy_BRIC)[2] <- "YearlyExcessReturn"
+colnames(strategy_BRIC)[4] <- "MonthlyExcessReturn"
+colnames(strategy_Country)[3] <- "YearlyExcessReturn"
+colnames(strategy_Country)[5] <- "MonthlyExcessReturn"
+
+# plot
+a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
+a
+```
