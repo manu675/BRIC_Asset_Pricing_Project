@@ -459,7 +459,8 @@ BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size")
 
 RMRF used for benchmark in p.50 lecture slides
 For annualisation we used arithmetic average * 12
-## 4.4/Benchmark
+
+## 4.4a Benchmark NOT Value Weighted 
 ```{r}
 # create copy
 BRIC.benchmark <- BRIC.maindata
@@ -469,31 +470,98 @@ BRIC.benchmark <- filter(BRIC.benchmark,BRIC.benchmark$pf.size == "Big")
 
 # BRIC
 # per year
-benchmark.retBricY <- aggregate(RMRF ~ hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retBricY <- aggregate(cbind(RET.USD,RMRF) ~ hcjun, data = BRIC.benchmark,FUN = mean)
 benchmark.retBricY$RMRF <- benchmark.retBricY$RMRF * 12
+benchmark.retBricY$RET.USD <- benchmark.retBricY$RET.USD * 12
 # per month
-benchmark.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retBricM <- aggregate(cbind(RET.USD,RMRF) ~ ym + hcjun, data = BRIC.benchmark,FUN = mean)
 
 # per country
 # per year
-benchmark.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retCountryY <- aggregate(cbind(RET.USD,RMRF) ~ country.x + hcjun, data = BRIC.benchmark,FUN = mean)
 benchmark.retCountryY$RMRF <- benchmark.retCountryY$RMRF * 12
+benchmark.retCountryY$RET.USD <- benchmark.retCountryY$RET.USD * 12
 # per month
-benchmark.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = mean)
+benchmark.retCountryM <- aggregate(cbind(RET.USD,RMRF) ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = mean)
 
 # single dataframe
 benchmark_BRIC <- inner_join(benchmark.retBricY,benchmark.retBricM,by = "hcjun")
 benchmark_Country <- inner_join(benchmark.retCountryY,benchmark.retCountryM,by = c("hcjun","country.x"))
 # rename columns
-colnames(benchmark_BRIC)[2] <- "YearlyExcessReturn"
-colnames(benchmark_BRIC)[4] <- "MonthlyExcessReturn"
-colnames(benchmark_Country)[3] <- "YearlyExcessReturn"
-colnames(benchmark_Country)[5] <- "MonthlyExcessReturn"
+colnames(benchmark_BRIC)[2] <- "YearlyReturn"
+colnames(benchmark_BRIC)[3] <- "YearlyExcessReturn"
+colnames(benchmark_BRIC)[5] <- "MonthlyReturn"
+colnames(benchmark_BRIC)[6] <- "MonthlyExcessReturn"
 
-# plot
-a <- ggplot(data = benchmark_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
-a
+colnames(benchmark_Country)[3] <- "YearlyReturn"
+colnames(benchmark_Country)[4] <- "YearlyExcessReturn"
+colnames(benchmark_Country)[6] <- "MonthlyReturn"
+colnames(benchmark_Country)[7] <- "MonthlyExcessReturn"
+
 ```
+
+
+
+## 4.4b Benchmark Value weighted
+
+```{r}
+# create copy
+BRIC.benchmark <- BRIC.maindata
+
+# filter on pf.size
+BRIC.benchmark <- filter(BRIC.benchmark,BRIC.benchmark$pf.size == "Big")
+
+# value weight returns
+## calculate monthly market value over all stocks
+BRIC.valueWeights <- aggregate(LMV.USD ~ ym, data = BRIC.benchmark, FUN = sum)
+colnames(BRIC.valueWeights)[2] <- "TotalValue"
+
+## join value weights to stocks
+BRIC.benchmark <- inner_join(x = BRIC.benchmark, y = BRIC.valueWeights, by = "ym")
+
+## calculate value weight
+BRIC.benchmark$ValueWeight <- BRIC.benchmark$LMV.USD/BRIC.benchmark$TotalValue
+
+## calculate value weight excess return / return
+BRIC.benchmark$vwExRet <- BRIC.benchmark$ValueWeight * BRIC.benchmark$RMRF
+BRIC.benchmark$vwRet <- BRIC.benchmark$ValueWeight*BRIC.benchmark$RET.USD
+
+# per month
+benchmark.retBricM <- aggregate(cbind(vwRet,vwExRet) ~ ym + hcjun, data = BRIC.benchmark,FUN = sum)
+
+# per year
+benchmark.retBricY <- aggregate(cbind(vwRet,vwExRet) ~ hcjun, data = benchmark.retBricM,FUN = mean)
+
+## annualise
+benchmark.retBricY$vwExRet <- benchmark.retBricY$vwExRet*12
+benchmark.retBricY$vwRet <- benchmark.retBricY$vwRet*12
+
+# per country
+benchmark.retCountryM <- aggregate(cbind(vwRet,vwExRet) ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = sum)
+
+# per year
+benchmark.retCountryY <- aggregate(cbind(vwRet,vwExRet) ~ country.x + hcjun, data = benchmark.retCountryM,FUN = mean)
+
+## annualise
+benchmark.retCountryY$vwExRet <- benchmark.retCountryY$vwExRet*12
+benchmark.retCountryY$vwRet <- benchmark.retCountryY$vwRet*12
+
+# single dataframe
+benchmark_BRIC <- inner_join(benchmark.retBricY,benchmark.retBricM,by = "hcjun")
+benchmark_Country <- inner_join(benchmark.retCountryY,benchmark.retCountryM,by = c("hcjun","country.x"))
+# rename columns
+colnames(benchmark_BRIC)[2] <- "YearlyReturn"
+colnames(benchmark_BRIC)[3] <- "YearlyExcessReturn"
+colnames(benchmark_BRIC)[5] <- "MonthlyReturn"
+colnames(benchmark_BRIC)[6] <- "MonthlyExcessReturn"
+
+colnames(benchmark_Country)[3] <- "YearlyReturn"
+colnames(benchmark_Country)[4] <- "YearlyExcessReturn"
+colnames(benchmark_Country)[6] <- "MonthlyReturn"
+colnames(benchmark_Country)[7] <- "MonthlyExcessReturn"
+```
+
+
 
 Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
 
@@ -767,17 +835,64 @@ RData file
 
 Brainstorming:
 
-- Correlation matrix across factors
 - annualized mean return (portfolio + by country)
 
 ```{r}
 
 # entire BRIC region returns (arithmetic average *12)
 # per year
-strategy.retBricY <- aggregate(RMRF ~ hcjun, data = BRIC.strategy,FUN = mean)
-strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12 
+strategy.retBricY <- aggregate(cbind(RMRF,RET.USD) ~ hcjun, data = BRIC.strategy,FUN = mean)
+strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12 # annualization of excess returns
+strategy.retBricY$RET.USD <- strategy.retBricY$RET.USD * 12 # ann. of regular returns
 # per month
 strategy.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.strategy,FUN = mean)
+
+
+# calculating the std of the annualized returns
+sd_pf <- sd(strategy.retBricY$RET.USD) # 35.63418
+
+# calculating the mean of the 24 years of annualized returns
+mean_ret_pf <- mean(strategy.retBricY$RET.USD)
+
+mean_ret_pf # 15.59512 %
+
+
+
+# SHARPE RATIO
+
+# mean excess return
+mean_rmrf_portfolio <- mean(strategy.retBricY$RMRF)
+
+sr_pf <- mean_rmrf_portfolio/sd_pf
+
+sr_pf # 0.3736825
+
+# Max Drawdown 
+
+v <- cumprod(1 + BRIC.strategy$RET.USD/100)  # returns
+1 - v/cummax(v)         ## drawdown
+max(1 - v/cummax(v))    ## max. drawdown
+
+# TRACKING ERROR
+
+# merge portfolio returns and benchmark returns
+portfolio_benchmark <- inner_join(x = strategy.retBricY, y = benchmark.retBricY, by = "hcjun")
+colnames(portfolio_benchmark)[2] <- "RMRF_pf"
+colnames(portfolio_benchmark)[3] <- "RET.USD_pf"
+colnames(portfolio_benchmark)[4] <- "RMRF_benchm"
+colnames(portfolio_benchmark)[5] <- "RET.USD_benchm"
+portfolio_benchmark$pf_activeReturn <- portfolio_benchmark$RET.USD_pf - portfolio_benchmark$RET.USD_benchm
+tracking_error <- sd(portfolio_benchmark$pf_activeReturn)
+
+tracking_error # 23.30507 %
+
+# INFORMATION RATIO (PF's avg active return over the tracking error)
+
+ir_pf <- mean(portfolio_benchmark$pf_activeReturn)/tracking_error
+
+ir_pf # 0.3075918
+
+
 
 # per country returns
 # per year
@@ -842,6 +957,8 @@ intermediate_df <- BRIC.strategy %>% select(c("Id","year","volatility"))
 
 # annualized volatility by stock per time point
 BRIC.strategy$vol_an <- BRIC.strategy$volatility*sqrt(12)
+
+total_sd_pf <- B
 
 
 # covariance matrix for the stock returns ()
@@ -930,21 +1047,21 @@ overview
 library(ggplot2)
 
 
-# cma.zoo <- zoo(factors$CMA) # zoo object
-# 
-# factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
-# 
-# hml.zoo <- zoo(factors$HML)
-# 
-# factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
-# 
-# rmw.zoo <- zoo(factors$RMW)
-# 
-# factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
-# 
-# smb.zoo <- zoo(factors$SMB)
-# 
-# factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
+cma.zoo <- zoo(factors$CMA) # zoo object
+
+factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
+
+hml.zoo <- zoo(factors$HML)
+
+factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
+
+rmw.zoo <- zoo(factors$RMW)
+
+factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
+
+smb.zoo <- zoo(factors$SMB)
+
+factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
 
 
 
@@ -992,26 +1109,44 @@ factor_returns
 ```{r}
 # Strategy vs benchmark plots
 
-length(BRIC.benchmark$RMRF)
+dim(benchmark.retBricM)
 
-length(BRIC.strategy$RMRF)
+dim(strategy.retBricM)
 
-# left join
-bm_plot_df 
+# inner join 
+bm_plot_df <- inner_join(x=benchmark.retBricM, y=strategy.retBricM, by="ym")
+
+bm_plot_df
+
+# zoo objects for cummulative performance 
+benchmark.zoo <- zoo(bm_plot_df$RMRF.x) # zoo object
+
+# cummulative performance of 1 EUR
+bm_plot_df$bm.cum_ret = cumsum(log(1+benchmark.zoo/100)) # cum log returns
+
+strategy.zoo <- zoo(bm_plot_df$RMRF.y)
+
+bm_plot_df$strat.cum_ret = cumsum(log(1+strategy.zoo/100))
+
+
+
+# creating a dataframe for plotting the cummulative returns
+df_new <- data.frame(bm.cret = as.vector(bm_plot_df$bm.cum_ret),
+                     strat.cret = as.vector(bm_plot_df$strat.cum_ret),
+                     time = bm_plot_df$ym)
 
 # strategy returns vs big stocks benchmark 
-factor_returns <- ggplot(data = factors, aes(x = Date)) + 
-  geom_line(aes(y = SMB, colour="SMB")) + 
-  geom_line(aes(y = HML, colour="HML")) + 
-  geom_line(aes(y = RMW, colour="RMW")) + 
-  geom_line(aes(y = CMA, colour="CMA")) + 
-  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
+strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
+  geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
+  geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
+  labs(y= "cummulative performance", x = "Year", title ="Monthly excess returns Strategy vs Benchmark") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Country weight", 
-                      breaks = c("SMB", "HML", "RMW", "CMA"),
-                      values = c("red", "green", "blue","orange"))
+  scale_colour_manual(name="Portfolio", 
+                      breaks = c("bm.cum_ret", "strat.cum_ret"),
+                      labels= c("Benchmark","Strategy"), # legend label names
+                      values = c("red", "green"))
   
-factor_returns
+strategy_vs_bm_returns
 
 ```
 
