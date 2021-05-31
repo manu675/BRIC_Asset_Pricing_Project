@@ -341,7 +341,7 @@ BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.U
 # delete na's, set 0 and calculate important values
 # no RET.USD data, no MV or no LMV.USD
 BRIC.monthly <- BRIC.monthly %>%
-  drop_na(RET.USD,MV,MV.USD,LMV.USD,MV.USD.June,volatility,momentum)
+  drop_na(RET.USD,MV,MV.USD,LMV.USD,MV.USD.June,volatility,pf.momentum)
 ```
 
 
@@ -419,7 +419,11 @@ BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
 
 ## 4.2 Calculate RMRF
 ```{r}
+# USD RMRF
 BRIC.monthly$RMRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
+# Local currency RMRF
+BRIC.monthly$RMRF.local <- BRIC.monthly$RET - BRIC.monthly$RF
+
 ```
 
 ## 4.3 Merge monthly and accounting (yearly) data
@@ -859,7 +863,6 @@ a
 ```
 
 
-
 ## 5.6 Loading GDP Data
 ```{r}
 # load data sheet from French's website
@@ -906,7 +909,155 @@ GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
 
 
 # plot of GDP weights over time
-overview <- ggplot(data = GDPData) + geom_line(aes(x = year, y = BRA_w)) + geom_line(aes(x = year, y = CHN_w, color="red")) + geom_line(aes(x = year, y = IND_w, color="blue")) + geom_line(aes(x = year, y = RUS_w, color="green"))
+overview <- ggplot(data = GDPData, aes(x = year)) + 
+  geom_line(aes(y = BRA_w, colour="BRA_w")) + 
+  geom_line(aes(y = CHN_w, colour="CHN_w")) + 
+  geom_line(aes(y = IND_w, colour="IND_w")) + 
+  geom_line(aes(y = RUS_w, colour="RUS_w")) + 
+  labs(y= "country weight", x = "Year", title ="GDP weights by country over time") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
+                      values = c("red", "green", "blue","orange"))
+  
 overview
 
 ```
+
+
+```{r}
+# factor return plots
+library(ggplot2)
+
+
+# cma.zoo <- zoo(factors$CMA) # zoo object
+# 
+# factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
+# 
+# hml.zoo <- zoo(factors$HML)
+# 
+# factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
+# 
+# rmw.zoo <- zoo(factors$RMW)
+# 
+# factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
+# 
+# smb.zoo <- zoo(factors$SMB)
+# 
+# factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
+
+
+
+# creating a dataframe for plotting the cummulative returns
+df_new <- data.frame(cma.cret = as.vector(factors$cma.cum_ret),
+                     smb.cret = as.vector(factors$smb.cum_ret),
+                     hml.cret = as.vector(factors$hml.cum_ret),
+                     rmw.cret = as.vector(factors$rmw.cum_ret),
+                     time = as.Date(factors$Date))
+
+# plot of the factor returns (log scale)
+cum_rets <- ggplot(data = df_new, aes(x = time))   +
+  geom_line(aes(y = smb.cret, colour="smb.cret")) + 
+  geom_line(aes(y = hml.cret, colour="hml.cret")) +
+  geom_line(aes(y = rmw.cret, colour="rmw.cret")) + 
+  geom_line(aes(y = cma.cret, colour="cma.cret")) + 
+  labs(y= "cum. log return", x = "Year", title ="Monthly cum. factor log returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Factor", 
+                      breaks = c("smb.cret", "hml.cret", "rmw.cret", "cma.cret"),
+                      values = c("red", "green", "blue","orange"))
+  
+cum_rets
+ 
+
+# factor returns (regular scale)
+factor_returns <- ggplot(data = factors, aes(x = Date)) + 
+  geom_line(aes(y = SMB, colour="SMB")) + 
+  geom_line(aes(y = HML, colour="HML")) + 
+  geom_line(aes(y = RMW, colour="RMW")) + 
+  geom_line(aes(y = CMA, colour="CMA")) + 
+  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("SMB", "HML", "RMW", "CMA"),
+                      values = c("red", "green", "blue","orange"))
+  
+factor_returns
+
+
+
+```
+
+
+```{r}
+# Strategy vs benchmark plots
+
+length(BRIC.benchmark$RMRF)
+
+length(BRIC.strategy$RMRF)
+
+# left join
+bm_plot_df 
+
+# strategy returns vs big stocks benchmark 
+factor_returns <- ggplot(data = factors, aes(x = Date)) + 
+  geom_line(aes(y = SMB, colour="SMB")) + 
+  geom_line(aes(y = HML, colour="HML")) + 
+  geom_line(aes(y = RMW, colour="RMW")) + 
+  geom_line(aes(y = CMA, colour="CMA")) + 
+  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("SMB", "HML", "RMW", "CMA"),
+                      values = c("red", "green", "blue","orange"))
+  
+factor_returns
+
+```
+
+
+
+# 7 Spanning tests (factor exposure)
+
+TO DO: 
+- do tests by country too
+- replace RMRF by RMRF.local
+
+```{r}
+# correlation matrix between factors
+
+head(factors)
+
+dim(factors) # 280 (24 years * 12 months) x 5
+
+cor(factors[,-"Date"]) # correlation matrix between factors for the BRIC region
+
+summary(factors) # to use for a table
+
+## Spanning Tests
+# Check if WML is spanned by the FF3FM
+##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML))]
+summary(lm(data=factors, formula = WML ~ RMRF + SMB + HML))
+
+# Check if WML is spanned by the FF5FM
+##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML + CMA + RMW))]
+summary(lm(data=Data_Excursus3a, formula = WML ~ RMRF.local + SMB + HML + CMA + RMW))
+
+# Check if WML is spanned by the FF3FM with HML_d
+##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML.devil))]
+summary(lm(data=Data_Excursus3a, formula = WML ~ RMRF.local + SMB + HML.devil))
+
+# correlation test between paired samples
+##Data_Excursus3a[,cor.test(WML,HML.devil)]
+cor.test(Data_Excursus3a$WML,Data_Excursus3a$HML.devil)
+
+# Check if Value is spanned by FF3F + WML
+##Data_Excursus3a[,summary(lm(HML ~ RMRF.local + SMB + WML))]
+summary(lm(data=Data_Excursus3a, formula = HML ~ RMRF.local + SMB + WML))
+
+##Data_Excursus3a[,summary(lm(HML.devil ~ RMRF.local + SMB + WML))]
+summary(lm(data=Data_Excursus3a, formula = HML.devil ~ RMRF.local + SMB + WML))
+
+```
+
+
