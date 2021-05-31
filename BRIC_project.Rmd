@@ -35,6 +35,7 @@ changing the WD
 ```{r}
 ##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
 ```
+$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
 # 0000. Reusable Code
 ```{r}
 ##summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
@@ -440,6 +441,15 @@ BRIC.maindata$OPBE <- BRIC.maindata$OperatingProfits / BRIC.maindata$BookValue
 BRIC.maindata$AssetChange <- ((BRIC.maindata$TotalAssets - BRIC.maindata$TotalAssetsBefore)/BRIC.maindata$TotalAssetsBefore)
 ```
 
+## BREAKPOINT
+If we want to calculate factors or anything else for countries standalone we will have to filter them here!
+```{r}
+
+# e.g. filter for China
+##BRIC.maindata <- filter(BRIC.maindata,BRIC.maindata$country.x == "CHN")
+
+```
+
 ## 4.4 SMB: Determine size Breakpoints
 ```{r}
 setorder(BRIC.maindata,Date,-MV.USD.June)
@@ -460,7 +470,7 @@ BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size")
 RMRF used for benchmark in p.50 lecture slides
 For annualisation we used arithmetic average * 12
 
-## 4.4a Benchmark NOT Value Weighted 
+## 4.5a Benchmark NOT Value Weighted 
 ```{r}
 # create copy
 BRIC.benchmark <- BRIC.maindata
@@ -471,16 +481,16 @@ BRIC.benchmark <- filter(BRIC.benchmark,BRIC.benchmark$pf.size == "Big")
 # BRIC
 # per year
 benchmark.retBricY <- aggregate(cbind(RET.USD,RMRF) ~ hcjun, data = BRIC.benchmark,FUN = mean)
-benchmark.retBricY$RMRF <- benchmark.retBricY$RMRF * 12
 benchmark.retBricY$RET.USD <- benchmark.retBricY$RET.USD * 12
+benchmark.retBricY$RMRF <- benchmark.retBricY$RMRF * 12
 # per month
 benchmark.retBricM <- aggregate(cbind(RET.USD,RMRF) ~ ym + hcjun, data = BRIC.benchmark,FUN = mean)
 
 # per country
 # per year
 benchmark.retCountryY <- aggregate(cbind(RET.USD,RMRF) ~ country.x + hcjun, data = BRIC.benchmark,FUN = mean)
-benchmark.retCountryY$RMRF <- benchmark.retCountryY$RMRF * 12
 benchmark.retCountryY$RET.USD <- benchmark.retCountryY$RET.USD * 12
+benchmark.retCountryY$RMRF <- benchmark.retCountryY$RMRF * 12
 # per month
 benchmark.retCountryM <- aggregate(cbind(RET.USD,RMRF) ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = mean)
 
@@ -500,9 +510,7 @@ colnames(benchmark_Country)[7] <- "MonthlyExcessReturn"
 
 ```
 
-
-
-## 4.4b Benchmark Value weighted
+## 4.5b Benchmark Value weighted
 
 ```{r}
 # create copy
@@ -513,18 +521,18 @@ BRIC.benchmark <- filter(BRIC.benchmark,BRIC.benchmark$pf.size == "Big")
 
 # value weight returns
 ## calculate monthly market value over all stocks
-BRIC.valueWeights <- aggregate(LMV.USD ~ ym, data = BRIC.benchmark, FUN = sum)
-colnames(BRIC.valueWeights)[2] <- "TotalValue"
+BRIC.benchmark.valueWeights <- aggregate(LMV.USD ~ ym, data = BRIC.benchmark, FUN = sum)
+colnames(BRIC.benchmark.valueWeights)[2] <- "TotalValue"
 
 ## join value weights to stocks
-BRIC.benchmark <- inner_join(x = BRIC.benchmark, y = BRIC.valueWeights, by = "ym")
+BRIC.benchmark <- inner_join(x = BRIC.benchmark, y = BRIC.benchmark.valueWeights, by = "ym")
 
 ## calculate value weight
 BRIC.benchmark$ValueWeight <- BRIC.benchmark$LMV.USD/BRIC.benchmark$TotalValue
 
 ## calculate value weight excess return / return
-BRIC.benchmark$vwExRet <- BRIC.benchmark$ValueWeight * BRIC.benchmark$RMRF
 BRIC.benchmark$vwRet <- BRIC.benchmark$ValueWeight*BRIC.benchmark$RET.USD
+BRIC.benchmark$vwExRet <- BRIC.benchmark$ValueWeight * BRIC.benchmark$RMRF
 
 # per month
 benchmark.retBricM <- aggregate(cbind(vwRet,vwExRet) ~ ym + hcjun, data = BRIC.benchmark,FUN = sum)
@@ -533,8 +541,8 @@ benchmark.retBricM <- aggregate(cbind(vwRet,vwExRet) ~ ym + hcjun, data = BRIC.b
 benchmark.retBricY <- aggregate(cbind(vwRet,vwExRet) ~ hcjun, data = benchmark.retBricM,FUN = mean)
 
 ## annualise
-benchmark.retBricY$vwExRet <- benchmark.retBricY$vwExRet*12
 benchmark.retBricY$vwRet <- benchmark.retBricY$vwRet*12
+benchmark.retBricY$vwExRet <- benchmark.retBricY$vwExRet*12
 
 # per country
 benchmark.retCountryM <- aggregate(cbind(vwRet,vwExRet) ~ country.x + ym + hcjun, data = BRIC.benchmark,FUN = sum)
@@ -543,8 +551,8 @@ benchmark.retCountryM <- aggregate(cbind(vwRet,vwExRet) ~ country.x + ym + hcjun
 benchmark.retCountryY <- aggregate(cbind(vwRet,vwExRet) ~ country.x + hcjun, data = benchmark.retCountryM,FUN = mean)
 
 ## annualise
-benchmark.retCountryY$vwExRet <- benchmark.retCountryY$vwExRet*12
 benchmark.retCountryY$vwRet <- benchmark.retCountryY$vwRet*12
+benchmark.retCountryY$vwExRet <- benchmark.retCountryY$vwExRet*12
 
 # single dataframe
 benchmark_BRIC <- inner_join(benchmark.retBricY,benchmark.retBricM,by = "hcjun")
@@ -567,7 +575,7 @@ Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE
 
 ![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
 
-##4.5 HML: Determine B/M breakpoints
+##4.6 HML: Determine B/M breakpoints
 ```{r}
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
@@ -584,7 +592,7 @@ BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_b
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
 ```
 
-##4.6 RMW: Determine OP/BE breakpoints
+##4.7 RMW: Determine OP/BE breakpoints
 ```{r}
 # Determine the OP/BE breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(OPBE) & pf.size=="Big", .(opbe_bb30 = quantile(OPBE , probs = c(0.3), na.rm=T),
@@ -603,7 +611,7 @@ BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
 
 ```
 
-##4.7 Calculate CMA
+##4.8 Calculate CMA
 investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
 ```{r}
 # Determine the AC breakpoints based on big stocks only
@@ -625,7 +633,7 @@ BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
 
 https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_factors_2x3.html
 
-##4.8 Calculate Factors
+##4.9 Calculate Factors
 ```{r}
 
 portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
@@ -747,7 +755,7 @@ excursus) but both small and big stocks go into the factor calculation.
 
 
 
-#5.Multifactor Portfolio sort
+#5.STRATEGY - Multifactor Portfolio sort
 
 Momentum sorting is done during #2.
 
@@ -798,9 +806,6 @@ table(BRIC.strategy$pf.low_vol)
 dim(BRIC.strategy)
 
 ```
-$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
-
-
 
 ##5.3 Filtering for strategy requirements
 ```{r}
@@ -818,7 +823,7 @@ dim(BRIC.strategy)
 summary(BRIC.strategy)
 ```
 
-#6 Calculating portfolio characteristics
+#6 STRATEGY II - Calculating portfolio characteristics
 
 All teams should perform the following analyses:
 
@@ -831,157 +836,49 @@ information ratio, all annualized)
 - Provide the time-series of the your strategy, the benchmark, and Fama-French factors as
 RData file
 
-## 6.1 Annualized PF returns 
+## 6.0 Weight column for BRIC.strategy
+NOTE RUN only one of the 6.0.x junks
 
-Brainstorming:
-
-- annualized mean return (portfolio + by country)
-
+### 6.0.1 Equal weights
+// Every stock has the same weight within a ym
 ```{r}
+# assign a new working variable
+strategy <- BRIC.strategy
 
-# entire BRIC region returns (arithmetic average *12)
-# per year
-strategy.retBricY <- aggregate(cbind(RMRF,RET.USD) ~ hcjun, data = BRIC.strategy,FUN = mean)
-strategy.retBricY$RMRF <- strategy.retBricY$RMRF * 12 # annualization of excess returns
-strategy.retBricY$RET.USD <- strategy.retBricY$RET.USD * 12 # ann. of regular returns
-# per month
-strategy.retBricM <- aggregate(RMRF ~ ym + hcjun, data = BRIC.strategy,FUN = mean)
+strategy.EqualWeights <- aggregate(Id ~ ym, data = strategy, FUN=function(x) length(unique(x)))
+colnames(strategy.EqualWeights)[2] <- "NumberOfStocks"
 
+## join value weights to stocks
+strategy <- inner_join(x = strategy, y = strategy.EqualWeights, by = "ym")
 
-# calculating the std of the annualized returns
-sd_pf <- sd(strategy.retBricY$RET.USD) # 35.63418
+## calculate value weight
+strategy$Weight <- 1/strategy$NumberOfStocks
 
-# calculating the mean of the 24 years of annualized returns
-mean_ret_pf <- mean(strategy.retBricY$RET.USD)
-
-mean_ret_pf # 15.59512 %
-
-
-
-# SHARPE RATIO
-
-# mean excess return
-mean_rmrf_portfolio <- mean(strategy.retBricY$RMRF)
-
-sr_pf <- mean_rmrf_portfolio/sd_pf
-
-sr_pf # 0.3736825
-
-# Max Drawdown 
-
-v <- cumprod(1 + BRIC.strategy$RET.USD/100)  # returns
-1 - v/cummax(v)         ## drawdown
-max(1 - v/cummax(v))    ## max. drawdown
-
-# TRACKING ERROR
-
-# merge portfolio returns and benchmark returns
-portfolio_benchmark <- inner_join(x = strategy.retBricY, y = benchmark.retBricY, by = "hcjun")
-colnames(portfolio_benchmark)[2] <- "RMRF_pf"
-colnames(portfolio_benchmark)[3] <- "RET.USD_pf"
-colnames(portfolio_benchmark)[4] <- "RMRF_benchm"
-colnames(portfolio_benchmark)[5] <- "RET.USD_benchm"
-portfolio_benchmark$pf_activeReturn <- portfolio_benchmark$RET.USD_pf - portfolio_benchmark$RET.USD_benchm
-tracking_error <- sd(portfolio_benchmark$pf_activeReturn)
-
-tracking_error # 23.30507 %
-
-# INFORMATION RATIO (PF's avg active return over the tracking error)
-
-ir_pf <- mean(portfolio_benchmark$pf_activeReturn)/tracking_error
-
-ir_pf # 0.3075918
-
-
-
-# per country returns
-# per year
-strategy.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = BRIC.strategy,FUN = mean)
-strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12 #annualizing the returns
-# per month
-strategy.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = BRIC.strategy,FUN = mean)
-
-# single dataframe
-strategy_BRIC <- inner_join(strategy.retBricY,strategy.retBricM,by = "hcjun")
-strategy_Country <- inner_join(strategy.retCountryY,strategy.retCountryM,by = c("hcjun","country.x"))
-# rename columns
-colnames(strategy_BRIC)[2] <- "YearlyExcessReturn"
-colnames(strategy_BRIC)[4] <- "MonthlyExcessReturn"
-colnames(strategy_Country)[3] <- "YearlyExcessReturn"
-colnames(strategy_Country)[5] <- "MonthlyExcessReturn"
-
-# annualized mean excess return for the entire period by country
-strategy.total_retCountryY <- aggregate(RMRF ~ country.x, data=strategy.retCountryY, FUN=mean)
-
-strategy.total_retCountryY
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.13, 0.60,0.17,0.10) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_gdp <- weighted.mean(x, wt)
-
-pf_mean_ex_return_gdp # 18.50333 % p.a.
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_ew <- weighted.mean(x, wt)
-
-pf_mean_ex_return_ew # 18.1691 % p.a.
-
-# average number of stocks in the PF over time period
-
-intermediate_df <- BRIC.strategy %>% select(c("Id","year"))
-
-strategy.no_stocks <- aggregate(Id ~year, data=intermediate_df, FUN=function(x) length(unique(x)))
-
-strategy.no_stocks # dataframe with no of stocks by year (for the entire BRIC region)
-
-mean(strategy.no_stocks$Id) # 99.56522 (average # of stocks per year)
-
-## extra info : by country and by year
-
-intermediate_df <- BRIC.strategy %>% select(c("Id","year","country.x"))
-
-strategy.no_stocks_by_country <- aggregate(Id ~year+country.x, data=intermediate_df, FUN=function(x) length(unique(x)))
-
-strategy.no_stocks_by_country
-
-# annualized std per year (weight per stock * stdev per stock )
-
-intermediate_df <- BRIC.strategy %>% select(c("Id","year","volatility"))
-
-# annualized volatility by stock per time point
-BRIC.strategy$vol_an <- BRIC.strategy$volatility*sqrt(12)
-
-total_sd_pf <- B
-
-
-# covariance matrix for the stock returns ()
-
-
-
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_ew <- weighted.mean(x, wt)
-
-
-# plot of the excess returns 
-a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
-a
+## calculate value weight excess return / return
+strategy$wRet <- strategy$Weight*strategy$RET.USD
+strategy$wExRet <- strategy$Weight * strategy$RMRF
 ```
-
-
-## 5.6 Loading GDP Data
+### 6.0.2 Value weights
+// every stock has a weight according to its marketcap in the ym
 ```{r}
+# value weight returns
+## calculate monthly market value over all stocks
+strategy.valueWeights <- aggregate(LMV.USD ~ ym, data = strategy, FUN = sum)
+colnames(strategy.valueWeights)[2] <- "TotalValue"
+
+## join value weights to stocks
+strategy <- inner_join(x = strategy, y = strategy.valueWeights, by = "ym")
+
+## calculate value weight
+strategy$ValueWeight <- strategy$LMV.USD/strategy$TotalValue
+
+## calculate value weight excess return / return
+strategy$wRet <- strategy$ValueWeight*strategy$RET.USD
+strategy$wExRet <- strategy$ValueWeight * strategy$RMRF
+```
+### 6.0.3 GDP Weights
+```{r}
+# LOAD GDP WEIGHTS -----------
 # load data sheet from French's website
 GDPData <- read_csv("GDP_raw_data.csv", 
      skip = 3)
@@ -1023,8 +920,6 @@ GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
 GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
 GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
 
-
-
 # plot of GDP weights over time
 overview <- ggplot(data = GDPData, aes(x = year)) + 
   geom_line(aes(y = BRA_w, colour="BRA_w")) + 
@@ -1036,11 +931,212 @@ overview <- ggplot(data = GDPData, aes(x = year)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
                       values = c("red", "green", "blue","orange"))
-  
 overview
+
+# CALCULATE GDP WEIGHTS ------------
+
+
+
+# td
+
+
+
 
 ```
 
+
+
+## 6.1 Portfolio Statistics
+
+### 6.1.1 BRIC
+
+```{r}
+
+# RETURNS
+
+# per month
+strategy.retBricM <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, data = strategy,FUN = sum)
+
+# per year
+strategy.retBricY <- aggregate(cbind(wRet,wExRet) ~ hcjun, data = strategy.retBricM,FUN = mean)
+# annualisation
+strategy.retBricY$wRet <- strategy.retBricY$wRet * 12
+strategy.retBricY$wExRet <- strategy.retBricY$wExRet * 12
+# mean return of whole period
+strategy.retBricT <- mean(strategy.retBricY$wRet) # 15.329091 %
+
+# mean excess return of whole period
+strategy.retExBricT <- mean(strategy.retBricY$wExRet) # 13.111509 %
+
+# STANDARD DEVIATION
+
+# we calculate the sd out of the annualised portfolio returns
+strategy.sdBricT <- sd(strategy.retBricY$wRet) # 37.155688
+
+# SHARP RATIO
+
+strategy.srBricT <- strategy.retExBricT/strategy.sdBricT # 0.352880
+
+# MAX DRAWDOWN
+
+v <- cumprod(1 + strategy$RET.USD/100)  # returns
+1 - v/cummax(v)         ## drawdown
+max(1 - v/cummax(v))    ## max. drawdown
+
+# TRACKING ERROR
+
+# merge portfolio returns and benchmark returns
+strategy_benchmark <- inner_join(x = strategy.retBricY, y = benchmark.retBricY, by = "hcjun")
+colnames(strategy_benchmark)[2] <- "wRet_strategy"
+colnames(strategy_benchmark)[3] <- "wExRet_strategy"
+colnames(strategy_benchmark)[4] <- "wRet_benchmark"
+colnames(strategy_benchmark)[5] <- "wExRet_benchmark"
+strategy_benchmark$pf_activeReturn <- strategy_benchmark$wRet_strategy - strategy_benchmark$wRet_benchmark
+strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
+
+# INFROMATION RATIO
+
+strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
+
+```
+### 6.1.2 By country
+IMPORTANT NOTE: If we would like to apply the whole strategy for a country stand-alone we would have to filter in 5.3 for a country and run the "BRIC"-code in part 6. Here we calculate statistics for single countries, but they're based on a portfolio selection with stocks of the whole BRIC region. --> strong BIAS
+
+```{r}
+
+# RETURNS
+
+# per month
+strategy.retCountryM <- aggregate(cbind(wRet,wExRet) ~ country.x + ym + hcjun, data = strategy,FUN = sum)
+# per year
+strategy.retCountryY <- aggregate(cbind(wRet,wExRet) ~ country.x + hcjun, data = strategy.retCountryM,FUN = mean)
+# annualisation
+strategy.retCountryY$wRet <- strategy.retCountryY$wRet * 12
+strategy.retCountryY$wExRet <- strategy.retCountryY$wExRet * 12
+# mean excess return and return of whole period
+strategy.retCountryT <- aggregate(cbind(wRet,wExRet) ~ country.x, data = strategy.retCountryY,FUN = mean)
+
+# STANDARD DEVIATION
+strategy.sdCountryT <- aggregate(wRet ~ country.x, data = strategy.retCountryY, FUN = sd)
+colnames(strategy.sdCountryT)[2] <- "SDwholeperiod"
+
+# SHARP RATIO
+
+strategy.srCountryT = inner_join(x = strategy.retCountryT, y = strategy.sdCountryT, by = "country.x" )
+strategy.srCountryT$SR <- strategy.srCountryT$wExRet/strategy.srCountryT$SDwholeperiod
+
+# MAX DRAWDOWN
+# td
+
+
+# TRACKING ERROR
+
+# merge portfolio returns and benchmark returns
+strategy_benchmark_c <- inner_join(x = strategy.retCountryY, y = benchmark.retCountryY, by = c("hcjun","country.x"))
+colnames(strategy_benchmark_c)[3] <- "wRet_portfolio"
+colnames(strategy_benchmark_c)[4] <- "wExRet_portfolio"
+colnames(strategy_benchmark_c)[5] <- "wRet_benchmark"
+colnames(strategy_benchmark_c)[6] <- "wExRet_benchmark"
+strategy_benchmark_c$pf_activeReturn <- strategy_benchmark_c$wRet_portfolio - strategy_benchmark_c$wRet_benchmark
+
+strategy.teCountryT <- aggregate(pf_activeReturn ~ country.x, data = strategy_benchmark_c, FUN = sd)
+colnames(strategy.teCountryT)[2] <- "TrackingError"
+
+# INFROMATION RATIO
+strategy.irCountryT_intermediate <- aggregate(pf_activeReturn ~ country.x, data = strategy_benchmark_c, FUN = mean)
+colnames(strategy.irCountryT_intermediate)[2] <- "meanActiveRet"
+
+strategy.irCountryT <- inner_join(x = strategy.teCountryT, y = strategy.irCountryT_intermediate, by = "country.x")
+strategy.irCountryT$InformationRatio <- strategy.irCountryT$meanActiveRet / strategy.irCountryT$TrackingError
+
+```
+
+```{r}
+###--------------BEARBEITEN!!---------------------------
+# per country returns
+# per year
+strategy.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = strategy,FUN = mean)
+strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12 #annualizing the returns
+# per month
+strategy.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = strategy,FUN = mean)
+
+# single dataframe
+strategy_BRIC <- inner_join(strategy.retBricY,strategy.retBricM,by = "hcjun")
+strategy_Country <- inner_join(strategy.retCountryY,strategy.retCountryM,by = c("hcjun","country.x"))
+# rename columns
+colnames(strategy_BRIC)[2] <- "YearlyExcessReturn"
+colnames(strategy_BRIC)[4] <- "MonthlyExcessReturn"
+colnames(strategy_Country)[3] <- "YearlyExcessReturn"
+colnames(strategy_Country)[5] <- "MonthlyExcessReturn"
+
+# annualized mean excess return for the entire period by country
+strategy.total_retCountryY <- aggregate(RMRF ~ country.x, data=strategy.retCountryY, FUN=mean)
+
+strategy.total_retCountryY
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.13, 0.60,0.17,0.10) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_gdp <- weighted.mean(x, wt)
+
+pf_mean_ex_return_gdp # 18.50333 % p.a.
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_ew <- weighted.mean(x, wt)
+
+pf_mean_ex_return_ew # 18.1691 % p.a.
+
+# average number of stocks in the PF over time period
+
+intermediate_df <- strategy %>% select(c("Id","year"))
+
+strategy.no_stocks <- aggregate(Id ~year, data=intermediate_df, FUN=function(x) length(unique(x)))
+
+strategy.no_stocks # dataframe with no of stocks by year (for the entire BRIC region)
+
+mean(strategy.no_stocks$Id) # 99.56522 (average # of stocks per year)
+
+## extra info : by country and by year
+
+intermediate_df <- strategy %>% select(c("Id","year","country.x"))
+
+strategy.no_stocks_by_country <- aggregate(Id ~year+country.x, data=intermediate_df, FUN=function(x) length(unique(x)))
+
+strategy.no_stocks_by_country
+
+# annualized std per year (weight per stock * stdev per stock )
+
+intermediate_df <- strategy %>% select(c("Id","year","volatility"))
+
+# annualized volatility by stock per time point
+strategy$vol_an <- strategy$volatility*sqrt(12)
+
+total_sd_pf <- B
+
+
+# covariance matrix for the stock returns ()
+
+
+
+
+# annualized mean excess return for the entire period for the entire PF (GDP weights)
+
+wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
+x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
+
+pf_mean_ex_return_ew <- weighted.mean(x, wt)
+
+
+# plot of the excess returns 
+a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
+a
+```
 
 ```{r}
 # factor return plots
