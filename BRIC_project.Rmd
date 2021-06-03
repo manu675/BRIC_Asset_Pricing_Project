@@ -70,6 +70,30 @@ load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pr
 load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_yearly.RData")
 ```
 
+## 0.2.3 Loading data Vinit
+```{r}
+# loading R.data BRIC monthly
+load("/Users/vinitkumar/Desktop/SS2021/Cases in Finance/BRIC_Asset_Pricing_Project/BRIC_Data/BRIC_monthly.RData")
+
+# loading R.data BRIC monthly
+load("/Users/vinitkumar/Desktop/SS2021/Cases in Finance/BRIC_Asset_Pricing_Project/BRIC_Data/BRIC_static.RData")
+
+# loading R.data BRIC monthly
+load("/Users/vinitkumar/Desktop/SS2021/Cases in Finance/BRIC_Asset_Pricing_Project/BRIC_Data/BRIC_yearly.RData")
+```
+## 0.2.4 Loading data Chandra
+```{r}
+# loading R.data BRIC monthly
+load("/Users/cg/Desktop/TUM/SS21/Empirical Asset Pricing Seminar/Presentation/BRIC_Data/BRIC_monthly.RData")
+
+# loading R.data BRIC yearly
+load("/Users/cg/Desktop/TUM/SS21/Empirical Asset Pricing Seminar/Presentation/BRIC_Data/BRIC_yearly.RData")
+
+# loading R.data BRIC static
+load("/Users/cg/Desktop/TUM/SS21/Empirical Asset Pricing Seminar/Presentation/BRIC_Data/BRIC_static.RData")
+```
+
+
 # Data preparation
 
 ## 1 Save raw data and adjust date range
@@ -87,6 +111,7 @@ BRIC.yearly.withNA <- subset(BRIC.yearly.raw, YEAR >= "1994" & YEAR <= "2019")
 BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2019-02-01")
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2019")
 ```
+
 
 ## 2 BRIC.monthly data preparation
 at this point of time the data sheet is still balanced, therefore we can use the shift function
@@ -176,6 +201,7 @@ BRIC.monthly <- BRIC.monthly %>%
 ```
 
 
+
 ## 3 BRIC.yearly data preparation and value calculation
 
 ```{r}
@@ -228,6 +254,7 @@ BRIC.yearly$hcdec <- BRIC.yearly$YEAR + 1
 
 ```
 
+
 # 4 FF5FM Calculation
 ## 4.1 Adding the 1-m treasury rate to the monthly data
 ```{r}
@@ -264,6 +291,8 @@ BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV
 BRIC.maindata$OPBE <- BRIC.maindata$OperatingProfits / BRIC.maindata$BookValue
 # Add a AssetChange column
 BRIC.maindata$AssetChange <- ((BRIC.maindata$TotalAssets - BRIC.maindata$TotalAssetsBefore)/BRIC.maindata$TotalAssetsBefore)
+
+BRIC.maindata <- subset(BRIC.maindata, hcjun >= "1996")
 ```
 
 ## BREAKPOINT
@@ -475,7 +504,7 @@ https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_facto
 # HML ----
 portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
   group_by(ym,SIZE_VALUE) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RiRF,
+  summarize(ret.port = weighted.mean(RET.USD,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_VALUE,ret.port) %>% # create one column for each group
   mutate(
@@ -492,7 +521,7 @@ portfolio_hml <- as.data.table(portfolio_hml)
 # RMW ----
 portfolio_rmw <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.opbe)] %>% # this operator nests functions
   group_by(ym,SIZE_PROFITABILITY) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RiRF,
+  summarize(ret.port = weighted.mean(RET.USD,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_PROFITABILITY,ret.port) %>% # create one column for each group
   mutate(
@@ -509,7 +538,7 @@ portfolio_rmw <- as.data.table(portfolio_rmw)
 # CMA ----
 portfolio_cma <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.ac)] %>% # this operator nests functions
   group_by(ym,SIZE_INVESTMENT) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RiRF,
+  summarize(ret.port = weighted.mean(RET.USD,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_INVESTMENT,ret.port) %>% # create one column for each group
   mutate(
@@ -526,7 +555,7 @@ portfolio_cma <- as.data.table(portfolio_cma)
 # MOM ----
 portfolio_mom <- BRIC.maindata[!is.na(pf.momentum)] %>% 
   group_by(ym,pf.momentum) %>% 
-  summarize(ret.port = weighted.mean(RiRF,
+  summarize(ret.port = weighted.mean(RET.USD,
                                      LMV.USD)) %>% 
   spread(pf.momentum,ret.port) %>% 
   mutate(
@@ -607,6 +636,7 @@ excursus) but both small and big stocks go into the factor calculation.
 
 
 
+
 #5.STRATEGY - Multifactor Portfolio sort
 Momentum sorting is done during #2.
 ##5.1 Value Breakpoints
@@ -684,6 +714,12 @@ bench.EqualWeights <- aggregate(Id ~ ym, data = BRIC.benchmark, FUN=function(x) 
 colnames(bench.EqualWeights)[2] <- "NumberOfStocks"
 # average number of stocks
 benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(bench.EqualWeights$NumberOfStocks)
+
+# Turnover ----
+## How often we add or remove a stock to our portfolio
+str <- BRIC.strategy
+turnover <- subset(str,select = "Id")
+turnover <- length(unique(str$Id))
 
 ```
 
@@ -862,72 +898,8 @@ strategy.irCountryT <- inner_join(x = strategy.teCountryT, y = strategy.irCountr
 strategy.irCountryT$InformationRatio <- strategy.irCountryT$meanActiveRet / strategy.irCountryT$TrackingError
 
 ```
-
-
-```{r}
-# factor return plots
-library(ggplot2)
-
-
-cma.zoo <- zoo(factors$CMA) # zoo object
-
-factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
-
-hml.zoo <- zoo(factors$HML)
-
-factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
-
-rmw.zoo <- zoo(factors$RMW)
-
-factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
-
-smb.zoo <- zoo(factors$SMB)
-
-factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
-
-
-
-# creating a dataframe for plotting the cummulative returns
-df_new <- data.frame(cma.cret = as.vector(factors$cma.cum_ret),
-                     smb.cret = as.vector(factors$smb.cum_ret),
-                     hml.cret = as.vector(factors$hml.cum_ret),
-                     rmw.cret = as.vector(factors$rmw.cum_ret),
-                     time = as.Date(factors$Date))
-
-# plot of the factor returns (log scale)
-cum_rets <- ggplot(data = df_new, aes(x = time))   +
-  geom_line(aes(y = smb.cret, colour="smb.cret")) + 
-  geom_line(aes(y = hml.cret, colour="hml.cret")) +
-  geom_line(aes(y = rmw.cret, colour="rmw.cret")) + 
-  geom_line(aes(y = cma.cret, colour="cma.cret")) + 
-  labs(y= "cum. log return", x = "Year", title ="Monthly cum. factor log returns") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Factor", 
-                      breaks = c("smb.cret", "hml.cret", "rmw.cret", "cma.cret"),
-                      values = c("red", "green", "blue","orange"))
-  
-cum_rets
- 
-
-# factor returns (regular scale)
-factor_returns <- ggplot(data = factors, aes(x = Date)) + 
-  geom_line(aes(y = SMB, colour="SMB")) + 
-  geom_line(aes(y = HML, colour="HML")) + 
-  geom_line(aes(y = RMW, colour="RMW")) + 
-  geom_line(aes(y = CMA, colour="CMA")) + 
-  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Country weight", 
-                      breaks = c("SMB", "HML", "RMW", "CMA"),
-                      values = c("red", "green", "blue","orange"))
-  
-factor_returns
-
-
-
-```
-
 ## 6.3 Benchmark Statistics
+
 ```{r}
 # mean return of whole period
 benchmark.retBricT <- mean(benchmark.retBricY$wRet) 
@@ -975,66 +947,11 @@ benchmark.irBricT <- mean(benchmark_benchmark$pf_activeReturn)/benchmark.teBricT
 benchmark_topTen <- BRIC.benchmark %>% arrange(desc(ValueWeight)) %>% group_by(ym) %>% top_n(wt=ValueWeight,10)
 benchmark.topTenBricY <- aggregate(ValueWeight ~ ym, data = benchmark_topTen, FUN = sum)
 benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
+
 ```
-
-## 6.4 Visualisation Plots
-```{r}
-# Strategy vs benchmark plots
-
-dim(benchmark.retBricM)
-
-dim(strategy.retBricM)
-
-# inner join 
-bm_plot_df <- inner_join(x=benchmark.retBricM, y=strategy.retBricM, by="ym")
-
-bm_plot_df
-
-# zoo objects for cummulative performance 
-benchmark.zoo <- zoo(bm_plot_df$RiRF.x) # zoo object
-
-# cummulative performance of 1 EUR
-bm_plot_df$bm.cum_ret = cumsum(log(1+benchmark.zoo/100)) # cum log returns
-
-strategy.zoo <- zoo(bm_plot_df$RiRF.y)
-
-bm_plot_df$strat.cum_ret = cumsum(log(1+strategy.zoo/100))
-
-
-
-# creating a dataframe for plotting the cummulative returns
-df_new <- data.frame(bm.cret = as.vector(bm_plot_df$bm.cum_ret),
-                     strat.cret = as.vector(bm_plot_df$strat.cum_ret),
-                     time = bm_plot_df$ym)
-
-# saving the plot as a jpeg file
-jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
-
-# strategy returns vs big stocks benchmark 
-strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
-  geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
-  geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
-  labs(y= "cummulative performance", x = "Year", title ="Monthly excess returns Strategy vs Benchmark") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Portfolio", 
-                      breaks = c("bm.cum_ret", "strat.cum_ret"),
-                      labels= c("Benchmark","Strategy"), # legend label names
-                      values = c("red", "green"))
-  
-strategy_vs_bm_returns
-
-# second part of the code that creates the jpeg file of the plot
-dev.off()
-```
-
-
-
 
 
 # 7 Spanning tests (factor exposure)
-TO DO: 
-- do tests by country too
-- replace RiRF by RiRF.local
 
 ```{r}
 # join factors, strategy and benchmark ----
@@ -1072,3 +989,133 @@ summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CM
 ```
 
 
+
+
+# 8 Plots and Visualisation
+List of plots:
+1) Cummulative performance Benchmark vs Strategy BRIC // VINIT/MANU revisit
+2) Single factors vs multifactor portfolio in risk-return space // MANU revisit
+3) Evolution of MarketCap weights per country --> regional weighting (implicit) // ?? // use GDP plot code and update it 
+
+List of tables:
+1) Performance and risk // MANU revisit --> JOHANNES gives the data
+2) Investability // MANU revisit
+3) Spanning tests_Style exposure //
+
+Table/Plot:
+1) Strategy BRIC vs Countries stand alone // JOHANNES td
+2) Strategy parts stand alone and/or 2 combined vs 3ple sort // Johannes makes the table
+3) 
+
+
+## 8.1 Benchmark vs Strategy
+```{r}
+# Strategy vs benchmark plots
+
+dim(benchmark.retBricM)
+dim(strategy.retBricM)
+
+# inner join 
+bm_plot_df <- inner_join(x=benchmark.retBricM, y=strategy.retBricM, by="ym")
+
+bm_plot_df
+
+# zoo objects for cummulative performance 
+benchmark.zoo <- zoo(bm_plot_df$wRet.x) # zoo object
+
+# cummulative performance of 1 EUR
+bm_plot_df$bm.cum_ret <- cumsum(log(1+benchmark.zoo/100)) # cum log returns
+
+strategy.zoo <- zoo(bm_plot_df$wRet.y)
+
+bm_plot_df$strat.cum_ret = cumsum(log(1+strategy.zoo/100))
+
+
+
+# creating a dataframe for plotting the cummulative returns
+df_new <- data.frame(bm.cret = as.vector(bm_plot_df$bm.cum_ret),
+                     strat.cret = as.vector(bm_plot_df$strat.cum_ret),
+                     time = bm_plot_df$ym)
+
+# saving the plot as a jpeg file
+jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
+
+# strategy returns vs big stocks benchmark 
+strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
+  geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
+  geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
+  labs(y= "cummulative performance", x = "Year", title ="Monthly excess returns Strategy vs Benchmark") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Portfolio", 
+                      breaks = c("bm.cum_ret", "strat.cum_ret"),
+                      labels= c("Benchmark","Strategy"), # legend label names
+                      values = c("red", "green"))
+  
+strategy_vs_bm_returns
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
+```
+
+## 8.2 Factor Returns
+```{r}
+# factor return plots
+library(ggplot2)
+
+cma.zoo <- zoo(factors$CMA) # zoo object
+
+factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
+
+hml.zoo <- zoo(factors$HML)
+
+factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
+
+rmw.zoo <- zoo(factors$RMW)
+
+factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
+
+smb.zoo <- zoo(factors$SMB)
+
+factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
+
+
+
+# creating a dataframe for plotting the cummulative returns
+df_new <- data.frame(cma.cret = as.vector(factors$cma.cum_ret),
+                     smb.cret = as.vector(factors$smb.cum_ret),
+                     hml.cret = as.vector(factors$hml.cum_ret),
+                     rmw.cret = as.vector(factors$rmw.cum_ret),
+                     time = as.Date(factors$ym))
+
+# plot of the factor returns (log scale)
+cum_rets <- ggplot(data = df_new, aes(x = time))   +
+  geom_line(aes(y = smb.cret, colour="smb.cret")) + 
+  geom_line(aes(y = hml.cret, colour="hml.cret")) +
+  geom_line(aes(y = rmw.cret, colour="rmw.cret")) + 
+  geom_line(aes(y = cma.cret, colour="cma.cret")) + 
+  labs(y= "cum. log return", x = "Year", title ="Monthly cum. factor log returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Factor", 
+                      breaks = c("smb.cret", "hml.cret", "rmw.cret", "cma.cret"),
+                      values = c("red", "green", "blue","orange"))
+  
+cum_rets
+ 
+
+# factor returns (regular scale)
+factor_returns <- ggplot(data = factors, aes(x = ym)) + 
+  geom_line(aes(y = SMB, colour="SMB")) + 
+  geom_line(aes(y = HML, colour="HML")) + 
+  geom_line(aes(y = RMW, colour="RMW")) + 
+  geom_line(aes(y = CMA, colour="CMA")) + 
+  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("SMB", "HML", "RMW", "CMA"),
+                      values = c("red", "green", "blue","orange"))
+  
+factor_returns
+
+
+
+```
