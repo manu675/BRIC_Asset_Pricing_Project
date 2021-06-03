@@ -419,12 +419,12 @@ BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
 
 ```
 
-## 4.2 Calculate RMRF
+## 4.2 Calculate RiRF
 ```{r}
-# USD RMRF
-BRIC.monthly$RMRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
-# Local currency RMRF
-BRIC.monthly$RMRF.local <- BRIC.monthly$RET - BRIC.monthly$RF
+# USD RiRF
+BRIC.monthly$RiRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
+# Local currency RiRF
+BRIC.monthly$RiRF.local <- BRIC.monthly$RET - BRIC.monthly$RF
 
 ```
 
@@ -468,7 +468,7 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable,
 BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size") 
 ```
 
-RMRF used for benchmark in p.50 lecture slides
+RiRF used for benchmark in p.50 lecture slides
 For annualisation we used arithmetic average * 12
 
 ## 4.5 Benchmark (Value weighted)
@@ -493,7 +493,7 @@ BRIC.benchmark$ValueWeight <- BRIC.benchmark$LMV.USD/BRIC.benchmark$TotalValue
 
 ## calculate value weight excess return / return
 BRIC.benchmark$wRet <- BRIC.benchmark$ValueWeight*BRIC.benchmark$RET.USD
-BRIC.benchmark$wExRet <- BRIC.benchmark$ValueWeight * BRIC.benchmark$RMRF
+BRIC.benchmark$wExRet <- BRIC.benchmark$ValueWeight * BRIC.benchmark$RiRF
 
 # per month
 benchmark.retBricM <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, data = BRIC.benchmark,FUN = sum)
@@ -596,10 +596,10 @@ https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_facto
 
 ##4.9 Calculate Factors
 ```{r}
-
+# HML ----
 portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this operator nests functions
-  group_by(Date,SIZE_VALUE) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RMRF,
+  group_by(ym,SIZE_VALUE) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RiRF,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_VALUE,ret.port) %>% # create one column for each group
   mutate(
@@ -613,9 +613,10 @@ portfolio_hml <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.bm)] %>% # this opera
 
 portfolio_hml <- as.data.table(portfolio_hml)
 
+# RMW ----
 portfolio_rmw <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.opbe)] %>% # this operator nests functions
-  group_by(Date,SIZE_PROFITABILITY) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RMRF,
+  group_by(ym,SIZE_PROFITABILITY) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RiRF,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_PROFITABILITY,ret.port) %>% # create one column for each group
   mutate(
@@ -629,9 +630,10 @@ portfolio_rmw <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.opbe)] %>% # this ope
 
 portfolio_rmw <- as.data.table(portfolio_rmw)
 
+# CMA ----
 portfolio_cma <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.ac)] %>% # this operator nests functions
-  group_by(Date,SIZE_INVESTMENT) %>% # do "everything" for the groups specified here
-  summarize(ret.port = weighted.mean(RMRF,
+  group_by(ym,SIZE_INVESTMENT) %>% # do "everything" for the groups specified here
+  summarize(ret.port = weighted.mean(RiRF,
                                      LMV.USD)) %>% # vw returns using lagged mcap
   spread(SIZE_INVESTMENT,ret.port) %>% # create one column for each group
   mutate(
@@ -645,11 +647,24 @@ portfolio_cma <- BRIC.maindata[!is.na(pf.size) & !is.na(pf.ac)] %>% # this opera
 
 portfolio_cma <- as.data.table(portfolio_cma)
 
-factors <- inner_join(x = portfolio_hml, y = portfolio_rmw, by = "Date")
-factors <- inner_join(x = factors, y = portfolio_cma, by = "Date")
-factors <- subset(factors, select = c("Date","CMA","HML","RMW","SMB_HML","SMB_RMW","SMB_CMA"))
+# MOM ----
+portfolio_mom <- BRIC.maindata[!is.na(pf.momentum)] %>% 
+  group_by(ym,pf.momentum) %>% 
+  summarize(ret.port = weighted.mean(RiRF,
+                                     LMV.USD)) %>% 
+  spread(pf.momentum,ret.port) %>% 
+  mutate(
+    MOM = Winner - Looser
+  )
+portfolio_mom <- as.data.table(portfolio_mom)
+
+
+factors <- inner_join(x = portfolio_hml, y = portfolio_rmw, by = "ym")
+factors <- inner_join(x = factors, y = portfolio_cma, by = "ym")
+factors <- inner_join(x = factors, y = portfolio_mom, by = "ym")
+factors <- subset(factors, select = c("ym","CMA","HML","RMW","SMB_HML","SMB_RMW","SMB_CMA","MOM"))
 factors$SMB <- ((factors$SMB_HML + factors$SMB_RMW + factors$SMB_CMA)/3)
-factors <- subset(factors, select = c("Date","CMA","HML","RMW","SMB"))
+factors <- subset(factors, select = c("ym","CMA","HML","RMW","SMB","MOM"))
 
 summary(factors)
 ```
@@ -832,7 +847,11 @@ strategy$Weight <- 1/strategy$NumberOfStocks
 
 ## calculate value weight excess return / return
 strategy$wRet <- strategy$Weight*strategy$RET.USD
-strategy$wExRet <- strategy$Weight * strategy$RMRF
+strategy$wExRet <- strategy$Weight * strategy$RiRF
+
+# TOP 10 ----
+strategy.EqualWeights$weight <- 1/strat.EqualWeights$NumberOfStocks
+strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
 ```
 ### 6.0.2 Value weights
 // every stock has a weight according to its marketcap in the ym
@@ -849,11 +868,17 @@ colnames(strategy.valueWeights)[2] <- "TotalValue"
 strategy <- inner_join(x = strategy, y = strategy.valueWeights, by = "ym")
 
 ## calculate value weight
-strategy$ValueWeight <- strategy$LMV.USD/strategy$TotalValue
+strategy$Weight <- strategy$LMV.USD/strategy$TotalValue
 
 ## calculate value weight excess return / return
-strategy$wRet <- strategy$ValueWeight*strategy$RET.USD
-strategy$wExRet <- strategy$ValueWeight * strategy$RMRF
+strategy$wRet <- strategy$Weight*strategy$RET.USD
+strategy$wExRet <- strategy$Weight * strategy$RiRF
+
+# TOP 10 ----
+strategy_topTen <- strategy %>% arrange(desc(Weight)) %>% group_by(ym) %>% top_n(wt=Weight,10)
+strategy.topTenBricY <- aggregate(Weight ~ ym, data = strategy_topTen, FUN = sum)
+strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
+
 ```
 ### 6.0.3 GDP Weights
 ```{r}
@@ -931,16 +956,11 @@ strategy_gdp$Weight <- 1/strategy_gdp$NumberOfStocks
 
 ## calculate value weight excess return / return
 strategy_gdp$wRet <- strategy_gdp$Weight*strategy_gdp$RET.USD
-strategy_gdp$wExRet <- strategy_gdp$Weight * strategy_gdp$RMRF
+strategy_gdp$wExRet <- strategy_gdp$Weight * strategy_gdp$RiRF
 
 strategy_gdp$newWeight <- strategy_gdp$Weight * strategy_gdp$IND_w
 
-
-
-
 ```
-
-
 
 ## 6.1 Portfolio Statistics
 
@@ -948,7 +968,7 @@ strategy_gdp$newWeight <- strategy_gdp$Weight * strategy_gdp$IND_w
 
 ```{r}
 
-# RETURNS
+# RETURNS ----
 
 # per month
 strategy.retBricM <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, data = strategy,FUN = sum)
@@ -964,16 +984,16 @@ strategy.retBricT <- mean(strategy.retBricY$wRet) # 15.329091 %
 # mean excess return of whole period
 strategy.retExBricT <- mean(strategy.retBricY$wExRet) # 13.111509 %
 
-# STANDARD DEVIATION
+# STANDARD DEVIATION ----
 
 # we calculate the sd out of the annualised portfolio returns
 strategy.sdBricT <- sd(strategy.retBricY$wRet) # 37.155688
 
-# SHARP RATIO
+# SHARP RATIO ----
 
 strategy.srBricT <- strategy.retExBricT/strategy.sdBricT # 0.352880
 
-# MAX DRAWDOWN
+# MAX DRAWDOWN ----
 
 drawdown <- function(ret) {
    cum.ret  <- c(0, cumsum(ret))
@@ -985,7 +1005,7 @@ maxdrawdown <- function(ret)min(drawdown(ret))
 ret <- strategy.retBricY$wRet
 strategy.mdBricT <- maxdrawdown(ret) # -99.1467
 
-# TRACKING ERROR
+# TRACKING ERROR ----
 
 # merge portfolio returns and benchmark returns
 strategy_benchmark <- inner_join(x = strategy.retBricY, y = benchmark.retBricY, by = "hcjun")
@@ -996,7 +1016,7 @@ colnames(strategy_benchmark)[5] <- "wExRet_benchmark"
 strategy_benchmark$pf_activeReturn <- strategy_benchmark$wRet_strategy - strategy_benchmark$wRet_benchmark
 strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
 
-# INFROMATION RATIO
+# INFROMATION RATIO ----
 
 strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
 
@@ -1010,9 +1030,6 @@ Run the different 6.0.x and then 6.1.1.
 ew <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT)
 vw <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT)
 bm <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT)
-
-
-
 
 ```
 
@@ -1071,92 +1088,6 @@ strategy.irCountryT$InformationRatio <- strategy.irCountryT$meanActiveRet / stra
 
 ```
 
-```{r}
-###--------------BEARBEITEN!!---------------------------
-# per country returns
-# per year
-strategy.retCountryY <- aggregate(RMRF ~ country.x + hcjun, data = strategy,FUN = mean)
-strategy.retCountryY$RMRF <- strategy.retCountryY$RMRF * 12 #annualizing the returns
-# per month
-strategy.retCountryM <- aggregate(RMRF ~ country.x + ym + hcjun, data = strategy,FUN = mean)
-
-# single dataframe
-strategy_BRIC <- inner_join(strategy.retBricY,strategy.retBricM,by = "hcjun")
-strategy_Country <- inner_join(strategy.retCountryY,strategy.retCountryM,by = c("hcjun","country.x"))
-# rename columns
-colnames(strategy_BRIC)[2] <- "YearlyExcessReturn"
-colnames(strategy_BRIC)[4] <- "MonthlyExcessReturn"
-colnames(strategy_Country)[3] <- "YearlyExcessReturn"
-colnames(strategy_Country)[5] <- "MonthlyExcessReturn"
-
-# annualized mean excess return for the entire period by country
-strategy.total_retCountryY <- aggregate(RMRF ~ country.x, data=strategy.retCountryY, FUN=mean)
-
-strategy.total_retCountryY
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.13, 0.60,0.17,0.10) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_gdp <- weighted.mean(x, wt)
-
-pf_mean_ex_return_gdp # 18.50333 % p.a.
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_ew <- weighted.mean(x, wt)
-
-pf_mean_ex_return_ew # 18.1691 % p.a.
-
-# average number of stocks in the PF over time period
-
-intermediate_df <- strategy %>% select(c("Id","year"))
-
-strategy.no_stocks <- aggregate(Id ~year, data=intermediate_df, FUN=function(x) length(unique(x)))
-
-strategy.no_stocks # dataframe with no of stocks by year (for the entire BRIC region)
-
-mean(strategy.no_stocks$Id) # 99.56522 (average # of stocks per year)
-
-## extra info : by country and by year
-
-intermediate_df <- strategy %>% select(c("Id","year","country.x"))
-
-strategy.no_stocks_by_country <- aggregate(Id ~year+country.x, data=intermediate_df, FUN=function(x) length(unique(x)))
-
-strategy.no_stocks_by_country
-
-# annualized std per year (weight per stock * stdev per stock )
-
-intermediate_df <- strategy %>% select(c("Id","year","volatility"))
-
-# annualized volatility by stock per time point
-strategy$vol_an <- strategy$volatility*sqrt(12)
-
-total_sd_pf <- B
-
-
-# covariance matrix for the stock returns ()
-
-
-
-
-# annualized mean excess return for the entire period for the entire PF (GDP weights)
-
-wt <- c(0.25, 0.25,0.25,0.25) # GDP weights (BRA, CHN, IND, RUS) 2017 GDP weights
-x <- c(strategy.total_retCountryY[,2]) # mean returns (BRA, CHN, IND, RUS)
-
-pf_mean_ex_return_ew <- weighted.mean(x, wt)
-
-
-# plot of the excess returns 
-a <- ggplot(data = strategy_BRIC) + geom_line(aes(x = ym, y = MonthlyExcessReturn)) + geom_line(aes(x = ym, y = YearlyExcessReturn, color="red"))
-a
-```
 
 ```{r}
 # factor return plots
@@ -1268,6 +1199,11 @@ benchmark.teBricT <- sd(benchmark_benchmark$pf_activeReturn)
 # INFROMATION RATIO
 
 benchmark.irBricT <- mean(benchmark_benchmark$pf_activeReturn)/benchmark.teBricT
+
+# TOP 10 ----
+benchmark_topTen <- BRIC.benchmark %>% arrange(desc(ValueWeight)) %>% group_by(ym) %>% top_n(wt=ValueWeight,10)
+benchmark.topTenBricY <- aggregate(ValueWeight ~ ym, data = benchmark_topTen, FUN = sum)
+benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
 ```
 
 
@@ -1284,12 +1220,12 @@ bm_plot_df <- inner_join(x=benchmark.retBricM, y=strategy.retBricM, by="ym")
 bm_plot_df
 
 # zoo objects for cummulative performance 
-benchmark.zoo <- zoo(bm_plot_df$RMRF.x) # zoo object
+benchmark.zoo <- zoo(bm_plot_df$RiRF.x) # zoo object
 
 # cummulative performance of 1 EUR
 bm_plot_df$bm.cum_ret = cumsum(log(1+benchmark.zoo/100)) # cum log returns
 
-strategy.zoo <- zoo(bm_plot_df$RMRF.y)
+strategy.zoo <- zoo(bm_plot_df$RiRF.y)
 
 bm_plot_df$strat.cum_ret = cumsum(log(1+strategy.zoo/100))
 
@@ -1323,42 +1259,47 @@ strategy_vs_bm_returns
 
 TO DO: 
 - do tests by country too
-- replace RMRF by RMRF.local
+- replace RiRF by RiRF.local
 
 ```{r}
+# join factors and strategy ----
+spanning <- left_join(x = factors, y = strategy.retBricM, by = "ym")
+
+
+
 # correlation matrix between factors
 
-head(factors)
+head(spanning)
 
-dim(factors) # 280 (24 years * 12 months) x 5
+dim(spanning) # 280 (24 years * 12 months) x 5
 
-cor(factors[,-"Date"]) # correlation matrix between factors for the BRIC region
+## cor(spanning[,-"ym"]) # correlation matrix between factors for the BRIC region
 
-summary(factors) # to use for a table
+summary(spanning) # to use for a table
 
 ## Spanning Tests
 # Check if WML is spanned by the FF3FM
-##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML))]
-summary(lm(data=factors, formula = WML ~ RMRF + SMB + HML))
+##Data_Excursus3a[,summary(lm(MOM ~ RiRF.local + SMB + HML))]
+summary(lm(data=spanning, formula = wRet ~ RiRF + SMB + HML))
 
 # Check if WML is spanned by the FF5FM
-##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML + CMA + RMW))]
-summary(lm(data=Data_Excursus3a, formula = WML ~ RMRF.local + SMB + HML + CMA + RMW))
+##Data_Excursus3a[,summary(lm(WML ~ RiRF.local + SMB + HML + CMA + RMW))]
+summary(lm(data=Data_Excursus3a, formula = WML ~ RiRF.local + SMB + HML + CMA + RMW))
 
 # Check if WML is spanned by the FF3FM with HML_d
-##Data_Excursus3a[,summary(lm(WML ~ RMRF.local + SMB + HML.devil))]
-summary(lm(data=Data_Excursus3a, formula = WML ~ RMRF.local + SMB + HML.devil))
+##Data_Excursus3a[,summary(lm(WML ~ RiRF.local + SMB + HML.devil))]
+summary(lm(data=Data_Excursus3a, formula = WML ~ RiRF.local + SMB + HML.devil))
 
 # correlation test between paired samples
 ##Data_Excursus3a[,cor.test(WML,HML.devil)]
 cor.test(Data_Excursus3a$WML,Data_Excursus3a$HML.devil)
 
 # Check if Value is spanned by FF3F + WML
-##Data_Excursus3a[,summary(lm(HML ~ RMRF.local + SMB + WML))]
-summary(lm(data=Data_Excursus3a, formula = HML ~ RMRF.local + SMB + WML))
+##Data_Excursus3a[,summary(lm(HML ~ RiRF.local + SMB + WML))]
+summary(lm(data=Data_Excursus3a, formula = HML ~ RiRF.local + SMB + WML))
 
-##Data_Excursus3a[,summary(lm(HML.devil ~ RMRF.local + SMB + WML))]
-summary(lm(data=Data_Excursus3a, formula = HML.devil ~ RMRF.local + SMB + WML))
+##Data_Excursus3a[,summary(lm(HML.devil ~ RiRF.local + SMB + WML))]
+summary(lm(data=Data_Excursus3a, formula = HML.devil ~ RiRF.local + SMB + WML))
 
 ```
 
