@@ -17,180 +17,17 @@ output:
 ---
 
 **BRIC Project**
-
 ```{r}
 # clear workspace
 ##rm(list=ls())
 ```
-
-
 getting the current WD
 
 ```{r}
 getwd()
 ```
 
-changing the WD
-
-```{r}
-##setwd("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data")
-```
-$$ Sharpe Ratio =  \frac{\mathbb{E}[R_p] - R_f}{\sigma_p} $$
-# 0000. Reusable Code
-```{r}
-##summary(country_mcap$mc_sum[country_mcap$country.x == "BRA"])
-##summary(country_mcap$mc_sum[country_mcap$country.x == "RUS"])
-##summary(country_mcap$mc_sum[country_mcap$country.x == "IND"])
-##summary(country_mcap$mc_sum[country_mcap$country.x == "CHN"])
-# finding the number of NA values by column in the dataframe
-##BRIC.monthly %>% mutate_all(is.na) %>% summarize_all(sum)
-
-
-# idea:
-# 
-# big_stocks <- mcap_country %>%
-#   select(ISIN) %>%
-#  sort(mcap_country$WC07210, decreasing=T)  %>%
-#   filter(mcap_country$WC07210 <= 0.9*country_mcap$mc_sum)
-# 
-# big_stocks
-# 
-# # sorting the stocks by market cap and extracting the ISINs of the biggest ones that make up 90% of a country's market cap
-# 
-# # RUSSIA
-# # 90% of the market cap in Russia: 
-# 0.9*country_mcap$mc_sum[4]
-# 
-# # subsetting all Russian stocks
-# russian_stocks <- as.data.frame(mcap_country) %>%
-#    filter(country.x == "RUS") 
-# 
-# # sorting the dataframe of russian stocks by decreasing market cap
-# russian_stocks <- russian_stocks[order(russian_stocks$WC07210,decreasing = TRUE),]
-#  
-# # filtering out the big stocks which sum up to 90% of the market cap of Russian stocks
-# big_stocks_RUS <- russian_stocks[cumsum(russian_stocks$WC07210) <= 0.9*country_mcap$mc_sum[4],]
-# 
-# big_stocks_RUS
-
-
-
-#calculations done above!!!!
-
-
-
-
-
-# https://alphaarchitect.com/2019/07/11/momentum-quality-and-r-code/
-
-### TO DO: filter out the highest sharpe ratio Value stocks and take the top 25% instead of the median
-
-## Momentum factor (based on Jagadeesh & Titman 1993, p.68)
-
-# Specifically, a strategy that selects stocks on the basis of returns over
-# the past J months and holds them for K months (we will refer to this as a
-# J-month/K-month strategy) is constructed as follows: At the beginning of
-# each month t the securities are ranked in ascending order on the basis of
-# their returns in the past J months.
-
-# creating a 12 months of past winners
-# ret_tbl <- subset(BRIC.strategy, select= c("RET.USD","Id","ym"))
-# # creating the 1st lag by id 
-# lag_1id <- shift(BRIC.strategy$RET.USD,n=1)
-# # creating the 12th lag by id 
-# lag_12id <- shift(BRIC.strategy$RET.USD,n=12)
-# 
-# ret_tbl$mon_return <-  BRIC.strategy$RET.USD
-# ret_tbl$skip_mon_return <- lag_1id
-# ret_tbl$twelve_mon_return <- lag_12id
-# 
-# ---------------------------------
-#   
-# ret_tbl <- subset(BRIC.strategy, select= c("Id","ym","RET.USD"))
-# 
-# # creating the 1st lag by id 
-# ret_tbl[, lag_1_vol := lag(RET.USD,1), by =Id]
-# 
-# # creating the 12th lag by id 
-# ret_tbl[, lag_12_vol := lag(RET.USD,12), by =Id]
-# 
-# colnames(ret_tbl)[3] <- "mon_return"
-# colnames(ret_tbl)[4] <- "skip_mon_return"
-# colnames(ret_tbl)[5] <- "twelve_mon_return"
-# 
-# head(ret_tbl)
-# 
-# class(ret_tbl$mon_return)
-# summary(ret_tbl)
-
---------------------------------------
-
-# We want to add a layer of logic that says, count the number of positive months over the 
-# preceding 12 months, and if equal to at least 8, encode a 1, else encode a 0
-
-# First, we label each month as positive or negative. If positive, label it 1, if negative label it 0. That will allow us to sum the positive months.
-
-# ret_tbl %>% 
-#   slice(-1:-2) %>% 
-#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-#                              TRUE ~ 1))                    
-# 
-# # Next, we find the rolling sum of the pos_neg column
-# ret_tbl %>% 
-#   slice(-1:-2) %>% 
-#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-#                              TRUE ~ 1),
-#          pos_sum = rollsum(pos_neg, 12,                    fill = NA,                    align = "right")) %>% 
-#   slice(12:16)
-# 
-# # If the pos_sum is greater than or equal to 8, we label that period a 1. I'll call that label 
-# # the consist_indicator
-# 
-# ret_tbl %>% 
-#   slice(-1:-2) %>% 
-#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-#                              TRUE ~ 1),
-#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-#                                     TRUE ~ 0)) %>% 
-#   select(Id, ym, skip_mon_return, pos_neg, pos_sum,                  consist_indicator, twelve_mon_return) %>% 
-#   slice(12:16)
-
-
-# We now have an indicator for the consistency of the momentum. We can code up an algorithm that # says if twelve_mon_return is positive and if consist_indicator is at least 8, then hold the 
-# asset for the following month, and code that time period as 'quality'
-
-# ret_tbl %>% 
-#   slice(-1:-2) %>% 
-#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-#                              TRUE ~ 1),
-#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-#                                     TRUE ~ 0),
-#          strat_returns = if_else(lag(twelve_mon_return) > 0 &                                        lag(consist_indicator) == 1,
-#                                  mon_return, 0),
-#          strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
-#                                  "quality", "not_quality")) %>% 
-#           na.omit()
-# 
-# 
-# ret_tbl %>% 
-#   slice(-1:-2) %>% 
-#   mutate(pos_neg = case_when(skip_mon_return < 0 ~ 0,
-#                              TRUE ~ 1),
-#          pos_sum = rollsum(pos_neg, 12, fill = NA, align = "right"),
-#          consist_indicator = case_when(pos_sum >= 8 ~ 1, 
-#                                     TRUE ~ 0),
-#          strat_returns = if_else(lag(twelve_mon_return) > 0 &                                  lag(consist_indicator) == 1,
-#                                  mon_return, 0),
-#          strat_label = if_else(lag(twelve_mon_return) > 0 &                               lag(consist_indicator) ==1,
-#                                  "quality", "not_quality")) %>% 
-#   na.omit() %>% 
-#   count(strat_label) %>%         
-#   mutate(prop = prop.table(n))
-```
-
-# Loading Libraries
+# 0.1 Loading Libraries
 
 ```{r}
 # loading libraries
@@ -198,24 +35,19 @@ library(data.table) # extension of the data.frame package. It is widely used for
 library(dplyr) # data manipulation package
 library(lubridate)
 library(zoo) # methods for totally ordered indexed observations. It aims at performing calculations containing irregular time series of numeric vectors, matrices & factors
-
 library(stats)
 library(utils)
 library(tidyverse)
 library(readr)
-library(fTrading)
-
 ```
-
-
-# Loading in the R.data
+# 0.2 Loading in the R.data
 
 Data column descriptions (Worldscope):
 https://www.professors.wi.tum.de/fileadmin/w00bca/fm/Worldscope_Data_Definition_Guide_Issue_15.pdf
 
 https://docs.google.com/spreadsheets/d/1YtuJiv60Q6nKIaFJLQY60sGQErbsl_8nvPdUHmvO8vM/edit?usp=sharing
 
-Loading data Johannes
+## 0.2.1 Loading data Johannes
 ```{r}
 memory.limit(9999999999)
 # loading R.data BRIC monthly
@@ -228,9 +60,7 @@ load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_static.RData")
 load("C:/Users/johan/Documents/BRIC_Asset_Pricing_Project/BRIC_yearly.RData")
 
 ```
-
-
-Loading data Manuel
+## 0.2.2 Loading data Manuel
 ```{r}
 # loading R.data BRIC monthly
 load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_monthly.RData")
@@ -240,9 +70,7 @@ load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pr
 load("/Users/Manu/Desktop/TUM_Master_Mgt_Technology/TUM_SS_21/Empirical Asset Pricing seminar/Seminar Thesis/BRIC_data/BRIC_yearly.RData")
 ```
 
-
 # Data preparation
-
 
 ## 1 Save raw data and adjust date range
 
@@ -283,6 +111,7 @@ BRIC.monthly[, lag10 := lag((RET.USD),10), by =Id]
 BRIC.monthly[, lag11 := lag((RET.USD),11), by =Id]
 BRIC.monthly[, lag12 := lag((RET.USD),12), by =Id]
 
+typeof(BRIC.monthly$lag1)
 # negative values are replaced to 0
 #ifelse(BRIC.monthly$lag1<=0,0,ifelse(BRIC.monthly$lag1>0,1,NA))
 BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1<=0,0)
@@ -350,13 +179,13 @@ BRIC.monthly <- BRIC.monthly %>%
 ## 3 BRIC.yearly data preparation and value calculation
 
 ```{r}
-#3.0 the BRIC.yearly panel here is still balanced! We need to add a column for total assets the year before
+#3.0 the BRIC.yearly panel here is still balanced! We need to add a column for total assets the year before ----
 #add the lagged WC03501 (shifted by Id) (this is the WC03501 from the previous month) 
 BRIC.yearly[, lag.value:=c(0, WC03501[-.N]), by=Id] 
 # rename column to LMV.USD
 colnames(BRIC.yearly)[106] <- "TotalAssetsBefore"
 
-#3.1 book value / equity and related
+#3.1 book value / equity and related ----
 # delete rows with no WC03501 (Common equity)
 BRIC.yearly <- BRIC.yearly %>%
   drop_na(WC03501)
@@ -367,7 +196,7 @@ BRIC.yearly$BookValue <- BRIC.yearly$WC03501 + BRIC.yearly$WC03263
 # delete rows with negative BookValue
 BRIC.yearly <- BRIC.yearly[BRIC.yearly$BookValue >= 0,]
 
-#3.2 total assets
+#3.2 total assets ----
 # delete rows with no WC02999 (total assets)
 BRIC.yearly <- BRIC.yearly %>%
   drop_na(WC02999)
@@ -375,7 +204,7 @@ BRIC.yearly <- BRIC.yearly %>%
 BRIC.yearly <- BRIC.yearly %>%
   drop_na(TotalAssetsBefore)
 
-#3.3 operating profits
+#3.3 operating profits ----
 # "To have a valid value, at least one of cost components cost of goods sold, selling, general and administrative expenses, or interest expense must be non-missing." (Hanauer, 2019, p. 284) --> if one of these values is missing, we must delete these rows WC01001,WC01051,WC01101,WC01251
 # delete rows where ALL 4 columns are NA
 BRIC.yearly <- filter(BRIC.yearly,!is.na(WC01001) | !is.na(WC01051) | !is.na(WC01101) | !is.na(WC01251))
@@ -387,15 +216,15 @@ BRIC.yearly$WC01251 <- BRIC.yearly$WC01251 %>% replace_na(0)
 # calculate operating profits (Hanauer, 2019, p.284)
 BRIC.yearly$OperatingProfits <- (BRIC.yearly$WC01001 - BRIC.yearly$WC01051 - BRIC.yearly$WC01101 - BRIC.yearly$WC01251)
 
-# 3.4 minimise data frame
+# 3.4 minimise data frame ----
 # for BRIC.yearly we keep: Id, country, ICBSUC, YEAR, BookValue, OperatingProfits and total assets
 # Note: WC07201 is not used, as our MV should be the MV from the monthly data for 06.y !
 BRIC.yearly <- subset(BRIC.yearly, select = c("Id","country","ICBSUC","YEAR","BookValue","OperatingProfits","WC02999","TotalAssetsBefore"))
 # we rename WC02999 to total assets
 colnames(BRIC.yearly)[7] <- "TotalAssets"
 
-# 3.5 delete 1994 data (no accounting data for 1994 needed)
-BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1995" & YEAR <= "2019")
+# 3.5 create a help column hcdec (1 year lag) ----
+BRIC.yearly$hcdec <- BRIC.yearly$YEAR + 1
 
 ```
 
@@ -417,22 +246,17 @@ BRIC.monthly <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
 # make rf column numeric
 BRIC.monthly$RF <- as.numeric(BRIC.monthly$RF)
 
-```
-
-## 4.2 Calculate RiRF
-```{r}
-# USD RiRF
+# Add RiRF ----
 BRIC.monthly$RiRF <- BRIC.monthly$RET.USD - BRIC.monthly$RF
 # Local currency RiRF
 BRIC.monthly$RiRF.local <- BRIC.monthly$RET - BRIC.monthly$RF
 
 ```
-
-## 4.3 Merge monthly and accounting (yearly) data
+## 4.2 Merge monthly and accounting (yearly) data
 NOTE: Here we "loose" around 600 000 rows! 
 
 ```{r}
-BRIC.maindata <- inner_join(x = BRIC.monthly,y = BRIC.yearly, by = c("Id","hcjun" = "YEAR"))
+BRIC.maindata <- inner_join(x = BRIC.monthly,y = BRIC.yearly, by = c("Id","hcjun" = "hcdec"))
 
 # Add a B/M column
 BRIC.maindata$BM <- BRIC.maindata$BookValue / BRIC.maindata$MV
@@ -451,7 +275,7 @@ If we want to calculate factors or anything else for countries standalone we wil
 
 ```
 
-## 4.4 SMB: Determine size Breakpoints
+## 4.3 SMB: Determine size Breakpoints
 ```{r}
 setorder(BRIC.maindata,Date,-MV.USD.June)
 hlpvariable <-  BRIC.maindata[month==7 & !is.na(MV.USD.June),
@@ -471,7 +295,7 @@ BRIC.maindata <- na.omit(BRIC.maindata,cols = "pf.size")
 RiRF used for benchmark in p.50 lecture slides
 For annualisation we used arithmetic average * 12
 
-## 4.5 Benchmark (Value weighted)
+## 4.4 Benchmark (Value weighted)
 
 ```{r}
 # create copy
@@ -529,8 +353,60 @@ colnames(benchmark_Country)[4] <- "YearlyExcessReturn"
 colnames(benchmark_Country)[6] <- "MonthlyReturn"
 colnames(benchmark_Country)[7] <- "MonthlyExcessReturn"
 ```
+## 4.5 Market (Excess) Return
+```{r}
+# create copy
+BRIC.market <- BRIC.maindata
 
+# value weight returns
+## calculate monthly market value over all stocks
+BRIC.market.valueWeights <- aggregate(LMV.USD ~ ym, data = BRIC.market, FUN = sum)
+colnames(BRIC.market.valueWeights)[2] <- "TotalValue"
 
+## join value weights to stocks
+BRIC.market <- inner_join(x = BRIC.market, y = BRIC.market.valueWeights, by = "ym")
+
+## calculate value weight
+BRIC.market$ValueWeight <- BRIC.market$LMV.USD/BRIC.market$TotalValue
+
+## calculate value weight excess return / return
+BRIC.market$wRet <- BRIC.market$ValueWeight*BRIC.market$RET.USD
+BRIC.market$wExRet <- BRIC.market$ValueWeight * BRIC.market$RiRF
+
+# per month
+market.retBricM <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, data = BRIC.market,FUN = sum)
+
+# per year
+market.retBricY <- aggregate(cbind(wRet,wExRet) ~ hcjun, data = market.retBricM,FUN = mean)
+
+## annualise
+market.retBricY$wRet <- market.retBricY$wRet*12
+market.retBricY$wExRet <- market.retBricY$wExRet*12
+
+# per country
+market.retCountryM <- aggregate(cbind(wRet,wExRet) ~ country.x + ym + hcjun, data = BRIC.market,FUN = sum)
+
+# per year
+market.retCountryY <- aggregate(cbind(wRet,wExRet) ~ country.x + hcjun, data = market.retCountryM,FUN = mean)
+
+## annualise
+market.retCountryY$wRet <- market.retCountryY$wRet*12
+market.retCountryY$wExRet <- market.retCountryY$wExRet*12
+
+# single dataframe
+market_BRIC <- inner_join(market.retBricY,market.retBricM,by = "hcjun")
+market_Country <- inner_join(market.retCountryY,market.retCountryM,by = c("hcjun","country.x"))
+# rename columns
+colnames(market_BRIC)[2] <- "YearlyReturn"
+colnames(market_BRIC)[3] <- "YearlyExcessReturn"
+colnames(market_BRIC)[5] <- "MonthlyReturn"
+colnames(market_BRIC)[6] <- "MonthlyExcessReturn"
+
+colnames(market_Country)[3] <- "YearlyReturn"
+colnames(market_Country)[4] <- "YearlyExcessReturn"
+colnames(market_Country)[6] <- "MonthlyReturn"
+colnames(market_Country)[7] <- "MonthlyExcessReturn"
+```
 
 Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
 
@@ -732,9 +608,7 @@ excursus) but both small and big stocks go into the factor calculation.
 
 
 #5.STRATEGY - Multifactor Portfolio sort
-
 Momentum sorting is done during #2.
-
 ##5.1 Value Breakpoints
 ```{r}
 BRIC.strategy <- BRIC.maindata
@@ -814,8 +688,8 @@ benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(ben
 ```
 
 
-#6 STRATEGY II - Calculating portfolio characteristics
 
+#6 Portfolio Statistics
 All teams should perform the following analyses:
 
 - A clear description of the strategy design (approach, weighting, rebalancing,...)
@@ -827,10 +701,9 @@ information ratio, all annualized)
 - Provide the time-series of the your strategy, the benchmark, and Fama-French factors as
 RData file
 
-## 6.0 Weight column for BRIC.strategy
+## 6.1 Weight column for BRIC.strategy
 NOTE RUN only one of the 6.0.x junks
-
-### 6.0.1 Equal weights
+### 6.1.1 Equal weights
 // Every stock has the same weight within a ym
 ```{r}
 # assign a new working variable
@@ -853,7 +726,7 @@ strategy$wExRet <- strategy$Weight * strategy$RiRF
 strategy.EqualWeights$weight <- 1/strat.EqualWeights$NumberOfStocks
 strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
 ```
-### 6.0.2 Value weights
+### 6.1.2 Value weights
 // every stock has a weight according to its marketcap in the ym
 ```{r}
 # assign a new working variable
@@ -880,91 +753,8 @@ strategy.topTenBricY <- aggregate(Weight ~ ym, data = strategy_topTen, FUN = sum
 strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
 
 ```
-### 6.0.3 GDP Weights
-```{r}
-# assign a new working variable
-strategy <- BRIC.strategy
-
-# LOAD GDP WEIGHTS -----------
-# load data sheet from French's website
-GDPData <- read_csv("GDP_raw_data.csv", 
-     skip = 3)
-
-# rename column
-colnames(GDPData)[2] <- "CountryCode"
-
-# filter on BRIC countries
-GDPData <- GDPData %>% filter(CountryCode == "IND" | CountryCode == "CHN" | CountryCode == "BRA" | CountryCode == "RUS")
-
-# transpose data frame and keep row names
-GDPData <- as.data.frame(t(GDPData))
-setDT(GDPData, keep.rownames = TRUE)[]
-
-colnames(GDPData)[1] <- "year"
-colnames(GDPData)[2] <- "BRA"
-colnames(GDPData)[3] <- "CHN"
-colnames(GDPData)[4] <- "IND"
-colnames(GDPData)[5] <- "RUS"
-
-# shorting data frame
-GDPData <- GDPData %>% filter(year >= 1994 & year < 2020 )
-
-class(GDPData$BRA)
-
-# convert factor type objects to numeric objects
-GDPData$BRA <- as.numeric(as.character(GDPData$BRA))
-GDPData$CHN <- as.numeric(as.character(GDPData$CHN))
-GDPData$IND <- as.numeric(as.character(GDPData$IND))
-GDPData$RUS <- as.numeric(as.character(GDPData$RUS))
-GDPData$year <- as.numeric(as.character(GDPData$year))
-
-# get the sum of all GDPs
-GDPData$SumOfGDP <- GDPData$BRA + GDPData$CHN + GDPData$IND + GDPData$RUS
-
-# get % of total GDP per country
-GDPData$BRA_w <- GDPData$BRA/GDPData$SumOfGDP
-GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
-GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
-GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
-
-# plot of GDP weights over time
-overview <- ggplot(data = GDPData, aes(x = year)) + 
-  geom_line(aes(y = BRA_w, colour="BRA_w")) + 
-  geom_line(aes(y = CHN_w, colour="CHN_w")) + 
-  geom_line(aes(y = IND_w, colour="IND_w")) + 
-  geom_line(aes(y = RUS_w, colour="RUS_w")) + 
-  labs(y= "country weight", x = "Year", title ="GDP weights by country over time") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Country weight", 
-                      breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
-                      values = c("red", "green", "blue","orange"))
-overview
-
-# Calculate GDP weights -----------
-
-colnames(GDPData)[1] <- "hcjun"
-strategy_gdp <- inner_join(x = strategy, y = GDPData, by = "hcjun")
-
-strategy_gdp.EqualWeights <- aggregate(Id ~ ym, data = strategy_gdp, FUN=function(x) length(unique(x)))
-colnames(strategy_gdp.EqualWeights)[2] <- "NumberOfStocks"
-
-## join value weights to stocks
-strategy_gdp <- inner_join(x = strategy_gdp, y = strategy_gdp.EqualWeights, by = "ym")
-
-## calculate value weight
-strategy_gdp$Weight <- 1/strategy_gdp$NumberOfStocks
-
-## calculate value weight excess return / return
-strategy_gdp$wRet <- strategy_gdp$Weight*strategy_gdp$RET.USD
-strategy_gdp$wExRet <- strategy_gdp$Weight * strategy_gdp$RiRF
-
-strategy_gdp$newWeight <- strategy_gdp$Weight * strategy_gdp$IND_w
-
-```
-
-## 6.1 Portfolio Statistics
-
-### 6.1.1 BRIC
+## 6.2 Strategy Statistics
+### 6.2.1 BRIC
 
 ```{r}
 
@@ -1019,24 +809,9 @@ strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
 # INFROMATION RATIO ----
 
 strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
-
-vw <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT)
-tw <- cbind(ew,vw)
 ```
 
-### 6.1.2 Overview different weights
-Run the different 6.0.x and then 6.1.1.
-```{r}
-ew <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT)
-vw <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT)
-bm <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT)
-
-```
-
-
-
-
-### 6.1.3 By country
+### 6.2.2 By country
 IMPORTANT NOTE: If we would like to apply the whole strategy for a country stand-alone we would have to filter in 5.3 for a country and run the "BRIC"-code in part 6. Here we calculate statistics for single countries, but they're based on a portfolio selection with stocks of the whole BRIC region. --> strong BIAS
 
 ```{r}
@@ -1152,12 +927,8 @@ factor_returns
 
 ```
 
-## 8.1 Benchmark Statistics
-
-### 8.1.1 BRIC
-
+## 6.3 Benchmark Statistics
 ```{r}
-
 # mean return of whole period
 benchmark.retBricT <- mean(benchmark.retBricY$wRet) 
 
@@ -1206,7 +977,7 @@ benchmark.topTenBricY <- aggregate(ValueWeight ~ ym, data = benchmark_topTen, FU
 benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
 ```
 
-
+## 6.4 Visualisation Plots
 ```{r}
 # Strategy vs benchmark plots
 
@@ -1236,6 +1007,9 @@ df_new <- data.frame(bm.cret = as.vector(bm_plot_df$bm.cum_ret),
                      strat.cret = as.vector(bm_plot_df$strat.cum_ret),
                      time = bm_plot_df$ym)
 
+# saving the plot as a jpeg file
+jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
+
 # strategy returns vs big stocks benchmark 
 strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
   geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
@@ -1249,6 +1023,8 @@ strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) +
   
 strategy_vs_bm_returns
 
+# second part of the code that creates the jpeg file of the plot
+dev.off()
 ```
 
 
@@ -1256,16 +1032,18 @@ strategy_vs_bm_returns
 
 
 # 7 Spanning tests (factor exposure)
-
 TO DO: 
 - do tests by country too
 - replace RiRF by RiRF.local
 
 ```{r}
-# join factors and strategy ----
-spanning <- left_join(x = factors, y = strategy.retBricM, by = "ym")
-
-
+# join factors, strategy and benchmark ----
+spanning_1 <- left_join(x = factors, y = strategy.retBricM, by = "ym")
+spanning <- left_join(x = spanning_1, y = market.retBricM, by = "ym")
+colnames(spanning)[8] <- "Strategy_RET"
+colnames(spanning)[9] <- "Strategy_RiRF"
+colnames(spanning)[11] <- "Market_RET"
+colnames(spanning)[12] <- "Market_RiRF"
 
 # correlation matrix between factors
 
@@ -1277,29 +1055,19 @@ dim(spanning) # 280 (24 years * 12 months) x 5
 
 summary(spanning) # to use for a table
 
-## Spanning Tests
-# Check if WML is spanned by the FF3FM
-##Data_Excursus3a[,summary(lm(MOM ~ RiRF.local + SMB + HML))]
-summary(lm(data=spanning, formula = wRet ~ RiRF + SMB + HML))
+# Spanning Tests ----
+## FF3FM
+summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML))
 
-# Check if WML is spanned by the FF5FM
-##Data_Excursus3a[,summary(lm(WML ~ RiRF.local + SMB + HML + CMA + RMW))]
-summary(lm(data=Data_Excursus3a, formula = WML ~ RiRF.local + SMB + HML + CMA + RMW))
+## FF5FM
+summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CMA + RMW))
 
-# Check if WML is spanned by the FF3FM with HML_d
-##Data_Excursus3a[,summary(lm(WML ~ RiRF.local + SMB + HML.devil))]
-summary(lm(data=Data_Excursus3a, formula = WML ~ RiRF.local + SMB + HML.devil))
+## FF3FM + MOM
+summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + MOM))
 
-# correlation test between paired samples
-##Data_Excursus3a[,cor.test(WML,HML.devil)]
-cor.test(Data_Excursus3a$WML,Data_Excursus3a$HML.devil)
+## FF5FM + MOM
+summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CMA + RMW + MOM))
 
-# Check if Value is spanned by FF3F + WML
-##Data_Excursus3a[,summary(lm(HML ~ RiRF.local + SMB + WML))]
-summary(lm(data=Data_Excursus3a, formula = HML ~ RiRF.local + SMB + WML))
-
-##Data_Excursus3a[,summary(lm(HML.devil ~ RiRF.local + SMB + WML))]
-summary(lm(data=Data_Excursus3a, formula = HML.devil ~ RiRF.local + SMB + WML))
 
 ```
 
