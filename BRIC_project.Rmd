@@ -1066,15 +1066,12 @@ load("statistics/differentStrategies_BRIC.RData")
 load("statistics/differentStrategies_CHN.RData")
 load("statistics/differentStrategies_RUS.RData")
 load("statistics/differentStrategies_IND.RData")
+load("statistics/differentStrategies_BRA.RData")
 load("statistics/factors_BRIC.RData")
 load("statistics/factors_CHN.RData")
 load("statistics/factors_RUS.RData")
 load("statistics/factors_IND.RData")
 load("statistics/factors_BRA.RData")
-```
-## 8.4 WORKING // Evolution of MarketCap Weights
-```{r}
-
 ```
 
 ## 8.1 Benchmark vs Strategy
@@ -1213,5 +1210,142 @@ plot_base <- ggplot(data = factor_plot_df) +
 
 
 plot_base
+
+```
+## 8.4 Evolution of MarketCap Weights
+! run this chunk fully, when not editing code !
+```{r}
+# 8.4.1 STRATEGY ----
+
+# create a balanced panel
+ym <- seq(as.yearmon('1996-07-01'), as.yearmon('2018-10-31'), by = 0.083333333333333333333333333)
+ym <- as.data.frame(ym)
+country.x <- c("BRA","CHN","IND","RUS")
+country.x <- as.data.frame(country.x)
+
+# preparing data sheet
+ymCountries <- crossing(ym,country.x)
+evolution.valueWeights <- aggregate(LMV.USD ~ ym + country.x, data = strategy, FUN = sum)
+balanced_strategy <- left_join(x = ymCountries, y = evolution.valueWeights, by = c("ym", "country.x"))
+evolution <- left_join(x = balanced_strategy, y = strategy.valueWeights, by = "ym")
+evolution$LMV.USD <- evolution$LMV.USD %>% replace_na(0)
+evolution$TotalValue <- evolution$TotalValue %>% replace_na(0)
+evolution$CountryShare <- evolution$LMV.USD/evolution$TotalValue
+evolution_w <- inner_join(x = evolution, y = evolution, by = "ym")
+evolution_u <- inner_join(x = evolution, y = evolution_w, by = "ym")
+evolution_v <- inner_join(x = evolution, y = evolution_u, by = "ym")
+evolution <- filter(evolution_v,country.x.x.x == "BRA" & country.x.y == "CHN" & country.x.x == "IND" & country.x.y.y == "RUS")
+colnames(evolution)[5] <- "BRA"
+colnames(evolution)[9] <- "CHN"
+colnames(evolution)[13] <- "IND"
+colnames(evolution)[17] <- "RUS"
+evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
+
+
+overview_strategy <- ggplot(data = evolution, aes(x = ym)) + 
+  geom_line(aes(y = BRA, colour="BRA")) + 
+  geom_line(aes(y = CHN, colour="CHN")) + 
+  geom_line(aes(y = IND, colour="IND")) + 
+  geom_line(aes(y = RUS, colour="RUS")) + 
+  labs(y= "country weight", x = "ym", title ="country weights by value in startegy") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("BRA", "CHN", "IND", "RUS"),
+                      values = c("red", "green", "blue","orange"))
+overview_strategy
+
+# 8.4.2 BENCHMARK ----
+
+# create a balanced panel
+ym <- seq(as.yearmon('1996-07-01'), as.yearmon('2018-10-31'), by = 0.083333333333333333333333333)
+ym <- as.data.frame(ym)
+country.x <- c("BRA","CHN","IND","RUS")
+country.x <- as.data.frame(country.x)
+
+# preparing data sheet
+ymCountries <- crossing(ym,country.x)
+evolution.valueWeights <- aggregate(LMV.USD ~ ym + country.x, data = BRIC.benchmark, FUN = sum)
+balanced_strategy <- left_join(x = ymCountries, y = evolution.valueWeights, by = c("ym", "country.x"))
+evolution <- left_join(x = balanced_strategy, y = BRIC.benchmark.valueWeights, by = "ym")
+evolution$LMV.USD <- evolution$LMV.USD %>% replace_na(0)
+evolution$TotalValue <- evolution$TotalValue %>% replace_na(0)
+evolution$CountryShare <- evolution$LMV.USD/evolution$TotalValue
+evolution_w <- inner_join(x = evolution, y = evolution, by = "ym")
+evolution_u <- inner_join(x = evolution, y = evolution_w, by = "ym")
+evolution_v <- inner_join(x = evolution, y = evolution_u, by = "ym")
+evolution <- filter(evolution_v,country.x.x.x == "BRA" & country.x.y == "CHN" & country.x.x == "IND" & country.x.y.y == "RUS")
+colnames(evolution)[5] <- "BRA"
+colnames(evolution)[9] <- "CHN"
+colnames(evolution)[13] <- "IND"
+colnames(evolution)[17] <- "RUS"
+evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
+
+
+overview_benchmark <- ggplot(data = evolution, aes(x = ym)) + 
+  geom_line(aes(y = BRA, colour="BRA")) + 
+  geom_line(aes(y = CHN, colour="CHN")) + 
+  geom_line(aes(y = IND, colour="IND")) + 
+  geom_line(aes(y = RUS, colour="RUS")) + 
+  labs(y= "country weight", x = "ym", title ="country weights by value in benchmark") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("BRA", "CHN", "IND", "RUS"),
+                      values = c("red", "green", "blue","orange"))
+overview_benchmark
+
+# 8.4.3 GDP evolution as comparison ----
+# load data sheet from French's website
+GDPData <- read_csv("GDP_raw_data.csv", 
+     skip = 3)
+
+# rename column
+colnames(GDPData)[2] <- "CountryCode"
+
+# filter on BRIC countries
+GDPData <- GDPData %>% filter(CountryCode == "IND" | CountryCode == "CHN" | CountryCode == "BRA" | CountryCode == "RUS")
+
+# transpose data frame and keep row names
+GDPData <- as.data.frame(t(GDPData))
+setDT(GDPData, keep.rownames = TRUE)[]
+
+colnames(GDPData)[1] <- "year"
+colnames(GDPData)[2] <- "BRA"
+colnames(GDPData)[3] <- "CHN"
+colnames(GDPData)[4] <- "IND"
+colnames(GDPData)[5] <- "RUS"
+
+# shorting data frame
+GDPData <- GDPData %>% filter(year >= 1994 & year < 2020 )
+
+class(GDPData$BRA)
+
+# convert factor type objects to numeric objects
+GDPData$BRA <- as.numeric(as.character(GDPData$BRA))
+GDPData$CHN <- as.numeric(as.character(GDPData$CHN))
+GDPData$IND <- as.numeric(as.character(GDPData$IND))
+GDPData$RUS <- as.numeric(as.character(GDPData$RUS))
+GDPData$year <- as.numeric(as.character(GDPData$year))
+
+# get the sum of all GDPs
+GDPData$SumOfGDP <- GDPData$BRA + GDPData$CHN + GDPData$IND + GDPData$RUS
+
+# get % of total GDP per country
+GDPData$BRA_w <- GDPData$BRA/GDPData$SumOfGDP
+GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
+GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
+GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
+
+# plot of GDP weights over time
+overview_gdp <- ggplot(data = GDPData, aes(x = year)) + 
+  geom_line(aes(y = BRA_w, colour="BRA_w")) + 
+  geom_line(aes(y = CHN_w, colour="CHN_w")) + 
+  geom_line(aes(y = IND_w, colour="IND_w")) + 
+  geom_line(aes(y = RUS_w, colour="RUS_w")) + 
+  labs(y= "country weight", x = "Year", title ="GDP weights by country") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
+                      values = c("red", "green", "blue","orange"))
+overview_gdp
 
 ```
