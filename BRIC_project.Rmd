@@ -1252,7 +1252,7 @@ colnames(evolution)[17] <- "RUS"
 evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
 
 # saving the plot as a jpeg file
-jpeg("weights_strategy.jpeg", width = 480, height = 480) # height and width can be chosen as your wish
+jpeg("weights_strategy.jpg", width = 480, height = 480) # height and width can be chosen as your wish
 
 overview_strategy <- ggplot(data = evolution, aes(x = ym)) + 
   geom_line(aes(y = BRA, colour="BRA")) + 
@@ -1296,7 +1296,7 @@ colnames(evolution)[17] <- "RUS"
 evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
 
 # saving the plot as a jpeg file
-jpeg("weights_benchmark.jpeg", width = 480, height = 480) # height and width can be chosen as your wish
+jpeg("weights_benchmark.jpg", width = 480, height = 480) # height and width can be chosen as your wish
 
 overview_benchmark <- ggplot(data = evolution, aes(x = ym)) + 
   geom_line(aes(y = BRA, colour="BRA")) + 
