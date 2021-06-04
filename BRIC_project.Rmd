@@ -716,16 +716,7 @@ bench.EqualWeights <- aggregate(Id ~ ym, data = BRIC.benchmark, FUN=function(x) 
 colnames(bench.EqualWeights)[2] <- "NumberOfStocks"
 # average number of stocks
 benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(bench.EqualWeights$NumberOfStocks)
-
-# Turnover ----
-## How often we add or remove a stock to our portfolio
-str <- BRIC.strategy
-turnover <- subset(str,select = "Id")
-turnover <- length(unique(str$Id))
-
 ```
-
-
 
 #6 Portfolio Statistics
 All teams should perform the following analyses:
@@ -955,6 +946,7 @@ benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
 ## 6.4 Turnover
 ```{r}
 library(reshape)
+library(xts)
 
 # strategy turnover ----
 # get intermediate data frame
@@ -1052,10 +1044,6 @@ summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CM
 
 
 ```
-
-
-
-
 # 8 Plots and Visualisation
 List of plots:
 1) Cummulative performance Benchmark vs Strategy BRIC // VINIT/MANU revisit
@@ -1068,10 +1056,26 @@ List of tables:
 3) Spanning tests_Style exposure //
 
 Table/Plot:
-1) Strategy BRIC vs Countries stand alone // JOHANNES td
-2) Strategy parts stand alone and/or 2 combined vs 3ple sort // Johannes makes the table
-3) 
+1) Strategy BRIC vs Countries stand alone // JOHANNES ## Tables done
+2) Strategy parts stand alone and/or 2 combined vs 3ple sort // Johannes ## Tables done
 
+```{r}
+# load stats data ----
+load("statistics/differentStrategies_all.RData")
+load("statistics/differentStrategies_BRIC.RData")
+load("statistics/differentStrategies_CHN.RData")
+load("statistics/differentStrategies_RUS.RData")
+load("statistics/differentStrategies_IND.RData")
+load("statistics/factors_BRIC.RData")
+load("statistics/factors_CHN.RData")
+load("statistics/factors_RUS.RData")
+load("statistics/factors_IND.RData")
+load("statistics/factors_BRA.RData")
+```
+## 8.4 WORKING // Evolution of MarketCap Weights
+```{r}
+
+```
 
 ## 8.1 Benchmark vs Strategy
 ```{r}
