@@ -297,8 +297,8 @@ BRIC.maindata <- subset(BRIC.maindata, hcjun >= "1996")
 
 ## BREAKPOINT
 If we want to calculate factors or anything else for countries standalone we will have to filter them here!
+For multiple trys run 4.2 again, to reset BRIC.maindata
 ```{r}
-
 # e.g. filter for China
 ##BRIC.maindata <- filter(BRIC.maindata,BRIC.maindata$country.x == "CHN")
 
@@ -437,12 +437,16 @@ colnames(market_Country)[6] <- "MonthlyReturn"
 colnames(market_Country)[7] <- "MonthlyExcessReturn"
 ```
 
-Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
-
+ Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
 ![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
-
-##4.6 HML: Determine B/M breakpoints
+## 4.6 - 4.8 Determine other breakpoints
 ```{r}
+
+# 4.6 HML: Determine B/M breakpoints ----
+
+# Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
+#![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
+
 # Determine the B/M breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(BM) & pf.size=="Big", .(bm_bb30 = quantile(BM , probs = c(0.3), na.rm=T),
                                                                         bm_bb70 = quantile(BM , probs = c(0.7), na.rm=T)),by=year]
@@ -456,10 +460,9 @@ BRIC.maindata <- merge(BRIC.maindata,hlpvariable2,
 BRIC.maindata[ , pf.bm := ifelse(BM>bm_bb70,"High",ifelse((BM<=bm_bb70 & BM>bm_bb30),"Neutral",ifelse(BM<=bm_bb30,"Low",NA)))]
 
 BRIC.maindata[, SIZE_VALUE := paste0(pf.size,".",pf.bm)]
-```
 
-##4.7 RMW: Determine OP/BE breakpoints
-```{r}
+# 4.7 RMW: Determine OP/BE breakpoints ----
+
 # Determine the OP/BE breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(OPBE) & pf.size=="Big", .(opbe_bb30 = quantile(OPBE , probs = c(0.3), na.rm=T),
                                                                         opbe_bb70 = quantile(OPBE , probs = c(0.7), na.rm=T)),by=year]
@@ -475,11 +478,10 @@ BRIC.maindata[ , pf.opbe := ifelse(OPBE>opbe_bb70,"Robust",ifelse((OPBE<=opbe_bb
 
 BRIC.maindata[, SIZE_PROFITABILITY := paste0(pf.size,".",pf.opbe)]
 
-```
+# 4.8 CMA: Determine Asset Change Breakpoints ----
 
-##4.8 Calculate CMA
-investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
-```{r}
+#investment: As in Cooper et al. (2008), we measure asset growth in June of year y as the percentage change in total assets (WC02999) from fiscal year ending in calendar year y−2 to fiscal year ending in calendar year y−1.
+
 # Determine the AC breakpoints based on big stocks only
 hlpvariable2 <- BRIC.maindata[month==7 & !is.na(AssetChange) & pf.size=="Big", .(ac_bb30 = quantile(AssetChange , probs = c(0.3), na.rm=T),
                                                                         ac_bb70 = quantile(AssetChange , probs = c(0.7), na.rm=T)),by=year]
@@ -950,6 +952,69 @@ benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
 
 ```
 
+## 6.4 Turnover
+```{r}
+library(reshape)
+
+# strategy turnover ----
+# get intermediate data frame
+turnover_calc <- strategy
+
+s_weights <- subset(turnover_calc,select= c("ym","Weight","Id"))
+s_weights <-reshape(s_weights, idvar = "ym", timevar = "Id", direction = "wide")
+s_weights <-as.xts(s_weights)
+s_weights[is.na(s_weights)]=0
+
+s_lead_weights <- as.data.frame(s_weights)
+s_lead_weights <-s_lead_weights %>% mutate_all(lead)
+as.data.frame(s_lead_weights)
+
+s_lead_weights<-as.data.frame(s_lead_weights)
+s_weights<-as.data.frame(s_weights)
+
+s_turnover_weights<-as.data.frame(txns <- s_lead_weights - s_weights) #s_tunover_weights - stuff inside the bracker in the fromula
+s_turnover_weights[is.na(s_turnover_weights)]=0
+s_turnover_pattern <- as.data.frame(rowSums(abs(s_turnover_weights[,1:length(s_turnover_weights)])),order.by=index(s_turnover_weights))
+colnames(s_turnover_pattern)[1] <- "one"
+
+s_turnover_pattern<-as.data.frame(s_turnover_pattern)
+strategy.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
+
+# benchmark turnover ----
+# get intermediate data frame
+turnover_calc <- BRIC.benchmark
+
+s_weights <- subset(turnover_calc,select= c("ym","ValueWeight","Id"))
+s_weights <-reshape(s_weights, idvar = "ym", timevar = "Id", direction = "wide")
+s_weights <-as.xts(s_weights)
+s_weights[is.na(s_weights)]=0
+
+s_lead_weights <- as.data.frame(s_weights)
+s_lead_weights <-s_lead_weights %>% mutate_all(lead)
+as.data.frame(s_lead_weights)
+
+s_lead_weights<-as.data.frame(s_lead_weights)
+s_weights<-as.data.frame(s_weights)
+
+s_turnover_weights<-as.data.frame(txns <- s_lead_weights - s_weights) #s_tunover_weights - stuff inside the bracker in the fromula
+s_turnover_weights[is.na(s_turnover_weights)]=0
+s_turnover_pattern <- as.data.frame(rowSums(abs(s_turnover_weights[,1:length(s_turnover_weights)])),order.by=index(s_turnover_weights))
+colnames(s_turnover_pattern)[1] <- "one"
+
+s_turnover_pattern<-as.data.frame(s_turnover_pattern)
+benchmark.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
+```
+
+
+## 6.5 Saving Statistics into a single data frame
+```{r}
+full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover)
+
+full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover)
+
+full_BRIC_ValueWeight
+```
+
 
 # 7 Spanning tests (factor exposure)
 
@@ -1117,5 +1182,32 @@ factor_returns <- ggplot(data = factors, aes(x = ym)) +
 factor_returns
 
 
+
+```
+
+## 8.3 Strategy Comparison (3factor, 2factor, 1factor)
+```{r}
+# cum. returns and sd of the factor models
+cumret <- c(0.1532,0.1601,0.0815) # EW, VW, BM
+sd <- c(0.3716,0.3597,0.2409)
+
+# creating a df for plotting
+factor_plot_df <- as.data.frame(cbind(cumret,sd))
+
+rownames(factor_plot_df) <- c("EW","VW","BM") 
+
+# Zooming in with xlim/ylim
+plot_base <- ggplot(data = factor_plot_df) +
+  geom_point(aes(x = sd, y = cumret), 
+             size = 3, alpha = 0.9, shape = 1) +
+  labs(y= "Cum. Return", x = "Risk (Sd)", title ="Risk return space of factor combinations") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Factor combination", 
+                      breaks = c("EM", "VW","BM"),
+                      labels= c("EM","VW","BM"), # legend label names
+                      values = c("red", "green"))
+
+
+plot_base
 
 ```
