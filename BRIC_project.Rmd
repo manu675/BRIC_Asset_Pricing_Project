@@ -1110,11 +1110,11 @@ jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width c
 strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
   geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
   geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
-  labs(y= "cummulative performance", x = "Year", title ="Monthly excess returns Strategy vs Benchmark") + # x and y axis lables and plot title
+  labs(y= "Cum. Log Returns", x = "Year", title ="Monthly Cum. Log Returns: 3FStrategy vs Benchmark") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Portfolio", 
                       breaks = c("bm.cum_ret", "strat.cum_ret"),
-                      labels= c("Benchmark","Strategy"), # legend label names
+                      labels= c("Benchmark","3FStrategy"), # legend label names
                       values = c("red", "green"))
   
 strategy_vs_bm_returns
@@ -1201,12 +1201,14 @@ factor_plot_df <- factor_plot_df[-3,]
 # renaming the 1st column
 colnames(factor_plot_df)[1] <-  "Strategies"
 
+# saving the plot as a jpeg file
+jpeg("risk_return_factors.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
 
 # Zooming in with xlim/ylim
 plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, label=Strategies)) +
   geom_point(color ="blue", size = 3, alpha = 0.9, shape = 1) +
   geom_text(aes(label=Strategies),hjust=0.5,vjust=-0.5) +
-  labs(y= "Strategy Return", x = "Risk (Volatility)", title ="Risk return space of factor combinations") + # x and y axis lables and plot title 
+  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title 
   theme(plot.title = element_text(face="bold", hjust=0.5))
   #scale_colour_manual(name="Factor combination", 
   #                    breaks = c(),
@@ -1215,6 +1217,9 @@ plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Retur
 
 
 plot_combinations
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
 
 ```
 ## 8.4 Evolution of MarketCap Weights
@@ -1246,18 +1251,23 @@ colnames(evolution)[13] <- "IND"
 colnames(evolution)[17] <- "RUS"
 evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
 
+# saving the plot as a jpeg file
+jpeg("weights_strategy.jpeg", width = 480, height = 480) # height and width can be chosen as your wish
 
 overview_strategy <- ggplot(data = evolution, aes(x = ym)) + 
   geom_line(aes(y = BRA, colour="BRA")) + 
   geom_line(aes(y = CHN, colour="CHN")) + 
   geom_line(aes(y = IND, colour="IND")) + 
   geom_line(aes(y = RUS, colour="RUS")) + 
-  labs(y= "country weight", x = "ym", title ="country weights by value in startegy") + # x and y axis lables and plot title
+  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the 3FStrategy") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA", "CHN", "IND", "RUS"),
                       values = c("red", "green", "blue","orange"))
 overview_strategy
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
 
 # 8.4.2 BENCHMARK ----
 
@@ -1285,18 +1295,23 @@ colnames(evolution)[13] <- "IND"
 colnames(evolution)[17] <- "RUS"
 evolution <- subset(evolution, select = c("ym","BRA","CHN","IND","RUS"))
 
+# saving the plot as a jpeg file
+jpeg("weights_benchmark.jpeg", width = 480, height = 480) # height and width can be chosen as your wish
 
 overview_benchmark <- ggplot(data = evolution, aes(x = ym)) + 
   geom_line(aes(y = BRA, colour="BRA")) + 
   geom_line(aes(y = CHN, colour="CHN")) + 
   geom_line(aes(y = IND, colour="IND")) + 
   geom_line(aes(y = RUS, colour="RUS")) + 
-  labs(y= "country weight", x = "ym", title ="country weights by value in benchmark") + # x and y axis lables and plot title
+  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the Benchmark") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA", "CHN", "IND", "RUS"),
                       values = c("red", "green", "blue","orange"))
 overview_benchmark
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
 
 # 8.4.3 GDP evolution as comparison ----
 # load data sheet from French's website
