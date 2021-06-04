@@ -1188,28 +1188,33 @@ factor_returns
 
 ## 8.3 Strategy Comparison (3factor, 2factor, 1factor)
 ```{r}
-# cum. returns and sd of the factor models
-cumret <- c(0.1532,0.1601,0.0815) # EW, VW, BM
-sd <- c(0.3716,0.3597,0.2409)
+rownames(differentStrategies.BRIC) <- c("Benchmark", "3F","V", "GLV","GMOM","LVMOM","G","LV","MOM")
 
-# creating a df for plotting
-factor_plot_df <- as.data.frame(cbind(cumret,sd))
 
-rownames(factor_plot_df) <- c("EW","VW","BM") 
+# transforming the index of the df into a column
+factor_plot_df <- setDT(differentStrategies.BRIC, keep.rownames = TRUE)
+
+# dropping an unnecessary row
+factor_plot_df <- factor_plot_df[-3,]
+
+
+# renaming the 1st column
+colnames(factor_plot_df)[1] <-  "Strategies"
+
 
 # Zooming in with xlim/ylim
-plot_base <- ggplot(data = factor_plot_df) +
-  geom_point(aes(x = sd, y = cumret), 
-             size = 3, alpha = 0.9, shape = 1) +
-  labs(y= "Cum. Return", x = "Risk (Sd)", title ="Risk return space of factor combinations") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Factor combination", 
-                      breaks = c("EM", "VW","BM"),
-                      labels= c("EM","VW","BM"), # legend label names
-                      values = c("red", "green"))
+plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, label=Strategies)) +
+  geom_point(color ="blue", size = 3, alpha = 0.9, shape = 1) +
+  geom_text(aes(label=Strategies),hjust=0.5,vjust=-0.5) +
+  labs(y= "Strategy Return", x = "Risk (Volatility)", title ="Risk return space of factor combinations") + # x and y axis lables and plot title 
+  theme(plot.title = element_text(face="bold", hjust=0.5))
+  #scale_colour_manual(name="Factor combination", 
+  #                    breaks = c(),
+  #                    labels= factor_plot_df$Strategies, # legend label names
+  #                    values = c("red", "green")) 
 
 
-plot_base
+plot_combinations
 
 ```
 ## 8.4 Evolution of MarketCap Weights
@@ -1349,3 +1354,4 @@ overview_gdp <- ggplot(data = GDPData, aes(x = year)) +
 overview_gdp
 
 ```
+
