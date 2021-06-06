@@ -191,10 +191,6 @@ BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.U
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
 BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
-
-# scale
-BRIC.monthly$MV <- BRIC.monthly$MV * 1000000
-BRIC.monthly$MV.USD <- BRIC.monthly$MV.USD * 1000000
 ```
 
 ## 2.1 Raw code to remove NAs (BRIC.monthly)
@@ -257,12 +253,6 @@ colnames(BRIC.yearly)[7] <- "TotalAssets"
 
 # 3.5 create a help column hcdec (1 year lag) ----
 BRIC.yearly$hcdec <- BRIC.yearly$YEAR + 1
-
-# scale
-BRIC.yearly$BookValue <- BRIC.yearly$BookValue *1000
-BRIC.yearly$OperatingProfits <- BRIC.yearly$OperatingProfits *1000
-BRIC.yearly$TotalAssets <- BRIC.yearly$TotalAssets *1000
-BRIC.yearly$TotalAssetsBefore <- BRIC.yearly$TotalAssetsBefore *1000
 ```
 
 
