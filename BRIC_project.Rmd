@@ -39,6 +39,8 @@ library(stats)
 library(utils)
 library(tidyverse)
 library(readr)
+library(ggplot2)
+library(reshape2)
 ```
 # 0.2 Loading in the R.data
 
@@ -189,6 +191,10 @@ BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.U
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 # order BRIC.monthly
 BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
+
+# scale
+BRIC.monthly$MV <- BRIC.monthly$MV * 1000000
+BRIC.monthly$MV.USD <- BRIC.monthly$MV.USD * 1000000
 ```
 
 ## 2.1 Raw code to remove NAs (BRIC.monthly)
@@ -252,6 +258,11 @@ colnames(BRIC.yearly)[7] <- "TotalAssets"
 # 3.5 create a help column hcdec (1 year lag) ----
 BRIC.yearly$hcdec <- BRIC.yearly$YEAR + 1
 
+# scale
+BRIC.yearly$BookValue <- BRIC.yearly$BookValue *1000
+BRIC.yearly$OperatingProfits <- BRIC.yearly$OperatingProfits *1000
+BRIC.yearly$TotalAssets <- BRIC.yearly$TotalAssets *1000
+BRIC.yearly$TotalAssetsBefore <- BRIC.yearly$TotalAssetsBefore *1000
 ```
 
 
@@ -574,6 +585,9 @@ factors$SMB <- ((factors$SMB_HML + factors$SMB_RMW + factors$SMB_CMA)/3)
 factors <- subset(factors, select = c("ym","CMA","HML","RMW","SMB","MOM"))
 
 summary(factors)
+
+
+summary(BRIC.maindata$BM)
 ```
 
 
@@ -1077,7 +1091,6 @@ load("statistics/factors_BRA.RData")
 ## 8.1 Benchmark vs Strategy
 ```{r}
 # Strategy vs benchmark plots
-
 dim(benchmark.retBricM)
 dim(strategy.retBricM)
 
@@ -1188,6 +1201,7 @@ factor_returns
 
 ## 8.3 Strategy Comparison (3factor, 2factor, 1factor)
 ```{r}
+
 rownames(differentStrategies.BRIC) <- c("Benchmark", "3F","V", "GLV","GMOM","LVMOM","G","LV","MOM")
 
 
@@ -1203,17 +1217,13 @@ colnames(factor_plot_df)[1] <-  "Strategies"
 
 # saving the plot as a jpeg file
 jpeg("risk_return_factors.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
-
 # Zooming in with xlim/ylim
-plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, label=Strategies)) +
-  geom_point(color ="blue", size = 3, alpha = 0.9, shape = 1) +
-  geom_text(aes(label=Strategies),hjust=0.5,vjust=-0.5) +
-  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title 
-  theme(plot.title = element_text(face="bold", hjust=0.5))
-  #scale_colour_manual(name="Factor combination", 
-  #                    breaks = c(),
-  #                    labels= factor_plot_df$Strategies, # legend label names
-  #                    values = c("red", "green")) 
+plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, color= Strategies)) +
+  geom_point(size = 3, alpha = 0.9, shape = 20) +
+  geom_text(color= "black", aes(label=Strategies,label=""),show_guide=F,hjust=0.6,vjust=-0.5) +
+  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title  
+theme(plot.title = element_text(face="bold", hjust=0.5)) +
+ scale_color_discrete(name = "Strategies", labels = c("3 Factor", "Benchmark", "Growth", "Growth_LowVol", "Growth_Momentum","LowVol","LowVolMomentum","Momentum"))
 
 
 plot_combinations
@@ -1223,7 +1233,6 @@ dev.off()
 
 ```
 ## 8.4 Evolution of MarketCap Weights
-! run this chunk fully, when not editing code !
 ```{r}
 # 8.4.1 STRATEGY ----
 
