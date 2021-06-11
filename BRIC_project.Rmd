@@ -657,50 +657,6 @@ summary(factors)
 summary(BRIC.maindata$BM)
 ```
 
-
-ISIN: International Security Identification Number (stock identifier)
-ESTAT: active vs inactive company (publicly listed or not)
-Id: join column with BRIC.yearly dataframe
-INDM: industry sector code
-
-GEOGN: geographic group name
-GEOLN: geographic location
-
-List of Database codes:
-https://www.bwl.uni-mannheim.de/media/Lehrstuehle/bwl/Maug/Database_info/Datastream_dataypes.pdf
-
-ID: ??
-Country: 4 BRIC COUNTRY CODES
-ICBSUC: industrial classification benchmark
-https://link.springer.com/content/pdf/bbm%3A978-3-8350-9531-1%2F1.pdf
-
-WC07021: SIC(standard industrial classification) primary code from Worldscope
-W05651: Common Shares Traded - Annual (Security)
-
-
-*TO DO's*:
-
-- Calculate Benchmark (market-cap weighted big stocks of the BRIC region) || DONE
-- Calculate break points on big stocks || DONE
-- decide on strategy and implement it || WORKING
-- calculate portfolio characteristics 
-- visualize and showcase strategy performance
-- regress strategy PF on FF5FM and momentum for style exposure analysis
-- Literature || WIP
-- sorting A-shares ... how to identify them? || DONE
-
-
-*Project Dates*:
-Thesis submission: June 21
-Final presentation: June 07
-
-*Strategy*:
-GDP weighted countries; stock level: max sharpe ratio, min volatility, equal sector weights or quotas, momentum?
-
-EDA
-
-To DO: compute correlations by sector (10 sectors)
-
 ```{r}
 # regular correlation matrix of all (four) numeric attributes
 cor(select(BRIC.static, where(is.numeric)))
