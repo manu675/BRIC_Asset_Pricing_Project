@@ -893,7 +893,6 @@ strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
 
 ```
 ## 6.2 Strategy Statistics
-### 6.2.1 BRIC
 
 ```{r}
 
@@ -970,57 +969,7 @@ strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
 strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
 ```
 
-### 6.2.2 By country
-IMPORTANT NOTE: If we would like to apply the whole strategy for a country stand-alone we would have to filter in 5.3 for a country and run the "BRIC"-code in part 6. Here we calculate statistics for single countries, but they're based on a portfolio selection with stocks of the whole BRIC region. --> strong BIAS
 
-```{r}
-
-# RETURNS
-
-# per month
-strategy.retCountryM <- aggregate(cbind(wRet,wExRet) ~ country.x + ym + hcjun, data = strategy,FUN = sum)
-# per year
-strategy.retCountryY <- aggregate(cbind(wRet,wExRet) ~ country.x + hcjun, data = strategy.retCountryM,FUN = mean)
-# annualisation
-strategy.retCountryY$wRet <- strategy.retCountryY$wRet * 12
-strategy.retCountryY$wExRet <- strategy.retCountryY$wExRet * 12
-# mean excess return and return of whole period
-strategy.retCountryT <- aggregate(cbind(wRet,wExRet) ~ country.x, data = strategy.retCountryY,FUN = mean)
-
-# STANDARD DEVIATION
-strategy.sdCountryT <- aggregate(wRet ~ country.x, data = strategy.retCountryY, FUN = sd)
-colnames(strategy.sdCountryT)[2] <- "SDwholeperiod"
-
-# SHARP RATIO
-
-strategy.srCountryT = inner_join(x = strategy.retCountryT, y = strategy.sdCountryT, by = "country.x" )
-strategy.srCountryT$SR <- strategy.srCountryT$wExRet/strategy.srCountryT$SDwholeperiod
-
-# MAX DRAWDOWN
-# td
-
-
-# TRACKING ERROR
-
-# merge portfolio returns and benchmark returns
-strategy_benchmark_c <- inner_join(x = strategy.retCountryY, y = benchmark.retCountryY, by = c("hcjun","country.x"))
-colnames(strategy_benchmark_c)[3] <- "wRet_portfolio"
-colnames(strategy_benchmark_c)[4] <- "wExRet_portfolio"
-colnames(strategy_benchmark_c)[5] <- "wRet_benchmark"
-colnames(strategy_benchmark_c)[6] <- "wExRet_benchmark"
-strategy_benchmark_c$pf_activeReturn <- strategy_benchmark_c$wRet_portfolio - strategy_benchmark_c$wRet_benchmark
-
-strategy.teCountryT <- aggregate(pf_activeReturn ~ country.x, data = strategy_benchmark_c, FUN = sd)
-colnames(strategy.teCountryT)[2] <- "TrackingError"
-
-# INFROMATION RATIO
-strategy.irCountryT_intermediate <- aggregate(pf_activeReturn ~ country.x, data = strategy_benchmark_c, FUN = mean)
-colnames(strategy.irCountryT_intermediate)[2] <- "meanActiveRet"
-
-strategy.irCountryT <- inner_join(x = strategy.teCountryT, y = strategy.irCountryT_intermediate, by = "country.x")
-strategy.irCountryT$InformationRatio <- strategy.irCountryT$meanActiveRet / strategy.irCountryT$TrackingError
-
-```
 ## 6.3 Benchmark Statistics
 
 ```{r}
