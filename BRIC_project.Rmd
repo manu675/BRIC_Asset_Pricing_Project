@@ -892,6 +892,7 @@ strategy.topTenBricY <- aggregate(Weight ~ ym, data = strategy_topTen, FUN = sum
 strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
 
 ```
+
 ## 6.2 Strategy Statistics
 
 ```{r}
