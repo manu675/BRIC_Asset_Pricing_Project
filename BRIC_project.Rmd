@@ -219,6 +219,11 @@ BRIC.monthly$MV.USD.June <- BRIC.monthly$MV.USD.June * 1000000
 BRIC.monthly$MV.December <- BRIC.monthly$MV.December * 1000000
 BRIC.monthly$MVChangeRate <- BRIC.monthly$MV.December/BRIC.monthly$MV
 
+# 1/4 rebalancing information
+BRIC.monthly[, leadr1 := lead((RET.USD),1), by =Id]
+BRIC.monthly[, leadr2 := lead((RET.USD),2), by =Id]
+BRIC.monthly[, leadm1 := lead((LMV.USD),1), by =Id]
+BRIC.monthly[, leadm2 := lead((LMV.USD),2), by =Id]
 
 ```
 
@@ -302,7 +307,7 @@ one_m_tbill <- as.data.frame(FFData[c("X1","RF")][1:693,])
 # adding a ym column to risk free rate data
 one_m_tbill$ym<-as.yearmon(one_m_tbill$X1, "%Y %m")
 #delete X1 column 
-one_m_tbill <- subset(one_m_tbill,select = c("ym","RF"))
+one_m_tbill <- subset(one_m_tbill,select = c("X1","ym","RF"))
 # merge risk-free rate (1 month treasury bill rate) with monthly data
 BRIC.monthly <- left_join(x = BRIC.monthly, y = one_m_tbill, by = "ym")
 
@@ -333,7 +338,7 @@ BRIC.maindata <- subset(BRIC.maindata, hcjun >= "1996")
 
 BRIC.maindata$BM <- BRIC.maindata$BookEquity / BRIC.maindata$MV.December
 
-summary(BRIC.maindata)
+#summary(BRIC.maindata)
 ```
 
 ## BREAKPOINT
@@ -678,8 +683,8 @@ excursus) but both small and big stocks go into the factor calculation.
 
 #5.STRATEGY - Multifactor Portfolio sort
 Momentum sorting is done during #2.
-##5.1 Value Breakpoints
 ```{r}
+##5.1 Value Breakpoints ----
 BRIC.strategy <- BRIC.maindata
 
 colnames(BRIC.strategy)
@@ -692,7 +697,7 @@ BRIC.strategy <- subset(BRIC.strategy, pf.size == "Big" )
 
 # subsetting only value stocks (cutoff = median) Look up CUTOFF details
 # Determine the value breakpoints
-hlpvariable2 <- BRIC.strategy[month==7, .(median = quantile(BM_Devil , probs = c(0.5), na.rm=T)),by=year]
+hlpvariable2 <- BRIC.strategy[month==7, .(median = quantile(BM , probs = c(0.5), na.rm=T)),by=year]
               
 # Merge the value portfolio allocation back from July Y to June Y+1
 BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
@@ -700,16 +705,9 @@ BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
                        by.y=c("year"),
                        all.x=T)
 
-BRIC.strategy[ , pf.value := ifelse(BM_Devil>median,"Value",(ifelse(BM_Devil<=median,"Growth",NA)))]
+BRIC.strategy[ , pf.value := ifelse(BM>median,"Value",(ifelse(BM<=median,"Growth",NA)))]
 
-table(BRIC.strategy$pf.value)
-dim(BRIC.strategy)
-```
-
-##5.2 Low Vol
-Strategy implementation on the balanced panel data (Multifactor etf)
-```{r}
-
+##5.2 Low Vol ----
 # Determine the low_vol breakpoints based on big stocks only
 hlpvariable2 <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
               
@@ -721,15 +719,10 @@ BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
 
 BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(volatility<=lower_20,"LowVol",NA)))]
 
-table(BRIC.strategy$pf.low_vol)
-dim(BRIC.strategy)
+##5.3 Filtering for strategy requirements ----
 
-```
-
-##5.3 Filtering for strategy requirements
-```{r}
 # filtering for growth stocks
-BRIC.strategy <- subset(BRIC.strategy, pf.value == "Growth" )
+BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
 
 # filtering for lowVol stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
@@ -737,40 +730,35 @@ BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 # filtering for winner stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
 
-dim(BRIC.strategy)
-
-summary(BRIC.strategy)
+# assign new variable
+strategy <- BRIC.strategy
 ```
 
-# Test site for 1/4-ly rebalancing
+# 1/4ly rebalancing
 ```{r}
+# We can use the %in% operator to filter data by a logical vector
+# setting up a df with the right months for quarterly rebalancing
+quarterly <- subset(BRIC.strategy,month==c(1,4,7,10))
+quarterly <- BRIC.strategy
+quarterly$ym_1 <- quarterly$ym + 1/12
+quarterly$ym_2 <- quarterly$ym + 2/12
+qu1 <- subset(quarterly,select = c("ym","RET.USD","LMV.USD","Id","country.x","hcjun"))
+qu2 <- subset(quarterly,select = c("ym_1","leadr1","leadm1","Id","country.x","hcjun"))
+qu3 <- subset(quarterly,select = c("ym_2","leadr2","leadm2","Id","country.x","hcjun"))
+colnames(qu2)[1] <- "ym"
+colnames(qu2)[2] <- "RET.USD"
+colnames(qu2)[3] <- "LMV.USD"
+colnames(qu3)[1] <- "ym"
+colnames(qu3)[2] <- "RET.USD"
+colnames(qu3)[3] <- "LMV.USD"
 
+qfull <- rbind(qu1,qu2,qu3)
+risk_f <- subset(one_m_tbill,X1 >= 199606 & X1 <= 201810)
+qfull <- left_join(x = qfull,y = risk_f,by = "ym")
+qfull$RiRF <- qfull$RET.USD - as.double(qfull$RF)
 
-
-
-
-
-
-
-
-
-
+strategy <- qfull
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## 5.4 Statistics on Strategy portfolio
 ```{r}
 strat.EqualWeights <- aggregate(Id ~ ym, data = BRIC.strategy, FUN=function(x) length(unique(x)))
@@ -802,7 +790,7 @@ NOTE RUN only one of the 6.0.x junks
 // Every stock has the same weight within a ym
 ```{r}
 # assign a new working variable
-strategy <- BRIC.strategy
+#strategy <- BRIC.strategy
 
 strategy.EqualWeights <- aggregate(Id ~ ym, data = strategy, FUN=function(x) length(unique(x)))
 colnames(strategy.EqualWeights)[2] <- "NumberOfStocks"
@@ -824,8 +812,8 @@ strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
 ### 6.1.2 Value weights
 // every stock has a weight according to its marketcap in the ym
 ```{r}
-# assign a new working variable
-strategy <- BRIC.strategy
+#assign a new working variable
+#strategy <- BRIC.strategy
 
 # value weight returns
 ## calculate monthly market value over all stocks
@@ -849,6 +837,10 @@ strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
 
 ```
 
+
+
+
+
 ## 6.2 Strategy Statistics
 
 ```{r}
@@ -860,7 +852,7 @@ strategy.retBricM_intermediate <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, dat
 
 # add risk-free rate if there's no investment in a month
 # risk_free rate for investment horizon
-risk_free <- subset(one_m_tbill,ym >= "Jul 1996" & ym <= "Okt 2018")
+risk_free <- subset(one_m_tbill,X1 >= 199606 & X1 <= 201810)
 # add hcjun
 risk_free$year <- as.numeric(format(risk_free$ym, "%Y"))
 risk_free$month <- as.numeric(format(risk_free$ym, "%m"))
@@ -1039,8 +1031,22 @@ benchmark.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)
 full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover)
 
 full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover)
-
 full_BRIC_ValueWeight
+```
+
+## 6.6 Effective N calculation
+```{r}
+#library(plyr)
+EFF_N<- ddply(.data = strategy, .(Id, year), 
+                summarize,  # Calculate an inverse HHI
+                invHHI = sum(table(Weight))^2 / sum(table(Weight)^2))
+strategy.eff_n <- (sum(EFF_N$invHHI) / (nrow(EFF_N))) #-3.58
+
+EFF_N_bm<- ddply(.data = BRIC.benchmark, .(Id, year), 
+                summarize,  # Calculate an inverse HHI
+                invHHI = sum(table(ValueWeight))^2 / sum(table(ValueWeight)^2))
+benchmark.eff_n <-mean(EFF_N_bm$invHHI) #-9.76
+benchmark.eff_n
 ```
 
 
@@ -1050,10 +1056,10 @@ full_BRIC_ValueWeight
 # join factors, strategy and benchmark ----
 spanning_1 <- left_join(x = factors, y = strategy.retBricM, by = "ym")
 spanning <- left_join(x = spanning_1, y = market.retBricM, by = "ym")
-colnames(spanning)[8] <- "Strategy_RET"
-colnames(spanning)[9] <- "Strategy_RiRF"
-colnames(spanning)[11] <- "Market_RET"
-colnames(spanning)[12] <- "Market_RiRF"
+colnames(spanning)[10] <- "Strategy_RET"
+colnames(spanning)[11] <- "Strategy_RiRF"
+colnames(spanning)[13] <- "Market_RET"
+colnames(spanning)[14] <- "Market_RiRF"
 
 # correlation matrix between factors
 
@@ -1112,7 +1118,6 @@ load("statistics/factors_BRA.RData")
 
 ## 8.1 Benchmark vs Strategy
 ```{r}
-# Strategy vs benchmark plots
 dim(benchmark.retBricM)
 dim(strategy.retBricM)
 
@@ -1474,4 +1479,79 @@ median(fu$MV.USD)
 
 
 ```
+# A.1
+```{r}
+# crazy combination trial
+##5.1 Value Breakpoints
+```{r}
+BRIC.strategy <- BRIC.maindata
 
+colnames(BRIC.strategy)
+
+## Value factor
+## creating a large cap and high B/M ratio column (large cap value)
+
+# subsetting the large cap stocks only (rebalanced yearly)
+BRIC.strategy <- subset(BRIC.strategy, pf.size == "Big" )
+
+# subsetting only value stocks (cutoff = median) Look up CUTOFF details
+# Determine the value breakpoints
+hlpvariable2 <- BRIC.strategy[month==7, .(median = quantile(BM_Devil , probs = c(0.5), na.rm=T)),by=year]
+              
+# Merge the value portfolio allocation back from July Y to June Y+1
+BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+BRIC.strategy[ , pf.growth := ifelse(BM_Devil>median,"Value",(ifelse(BM_Devil<=median,"Growth",NA)))]
+
+# Merge the value portfolio allocation back from July Y to June Y+1
+hlpvariable3 <- BRIC.strategy[month==7, .(median2 = quantile(BM , probs = c(0.5), na.rm=T)),by=year]
+BRIC.strategy <- merge(BRIC.strategy,hlpvariable3,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+BRIC.strategy[ , pf.value := ifelse(BM>median2,"Value",(ifelse(BM<=median2,"Growth",NA)))]
+
+table(BRIC.strategy$pf.value)
+dim(BRIC.strategy)
+```
+
+##5.2 Low Vol
+Strategy implementation on the balanced panel data (Multifactor etf)
+```{r}
+
+# Determine the low_vol breakpoints based on big stocks only
+hlpvariable2 <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
+              
+# Merge the low_vol portfolio allocation back from July Y to June Y+1
+BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
+
+BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(volatility<=lower_20,"LowVol",NA)))]
+
+table(BRIC.strategy$pf.low_vol)
+dim(BRIC.strategy)
+
+```
+
+##5.3 Filtering for multiple strategy requirements
+```{r}
+# filtering for growth stocks
+BRIC.strategy_1 <- subset(BRIC.strategy, pf.growth == "Growth" )
+BRIC.strategy_2 <- subset(BRIC.strategy, pf.value == "Value" )
+BRIC.strategy <- rbind(BRIC.strategy_1,BRIC.strategy_2)
+
+# filtering for lowVol stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
+
+# filtering for winner stocks
+BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
+
+dim(BRIC.strategy)
+
+summary(BRIC.strategy)
+```
+```
