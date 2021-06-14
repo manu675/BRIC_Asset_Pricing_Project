@@ -107,10 +107,10 @@ BRIC.yearly.raw <- BRIC.yearly
 
 #1 adjust date range (from May 1994 to October 2018)
 #1.1 leave raw data with date adjustment
-BRIC.monthly.withNA <- subset(BRIC.monthly.raw, Date >= "1994-05-31" & Date <= "2018-10-31")
+BRIC.monthly.withNA <- subset(BRIC.monthly.raw, Date >= "1994-05-31")
 BRIC.yearly.withNA <- subset(BRIC.yearly.raw, YEAR >= "1994" & YEAR <= "2018")
 #1.2 working dataframe
-BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-05-31" & Date <= "2018-10-31")
+BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-05-31")
 BRIC.yearly <- subset(BRIC.yearly, YEAR >= "1994" & YEAR <= "2018")
 ```
 
@@ -187,17 +187,15 @@ BRIC.monthly$lagSum <- BRIC.monthly$lag2 + BRIC.monthly$lag3 + BRIC.monthly$lag4
 
 BRIC.monthly[ , pf.momentum := ifelse(lagSum>=8,"Winner",ifelse(lagSum < 8,"Looser",NA))]
 
-# delete all entrys before June 1994
-BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2018-10-31")
-
-# calculate MV.USD.June for every column
-# help columns
+# group
 BRIC.monthly[,month := month(Date)]
 BRIC.monthly[,year := year(Date)]
 BRIC.monthly[,hcjun := ifelse(month>=7,year,year-1)]
-# MV.USD.June column
+
+# MV.USD.June and MV.December column
 intermediate <- filter(BRIC.monthly,BRIC.monthly$month == 7)
 intermediate2 <- filter(BRIC.monthly,BRIC.monthly$month == 12)
+
 # minimise for join
 intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
@@ -224,6 +222,9 @@ BRIC.monthly[, leadr1 := lead((RET.USD),1), by =Id]
 BRIC.monthly[, leadr2 := lead((RET.USD),2), by =Id]
 BRIC.monthly[, leadm1 := lead((LMV.USD),1), by =Id]
 BRIC.monthly[, leadm2 := lead((LMV.USD),2), by =Id]
+
+# limit time period
+BRIC.monthly <- subset(BRIC.monthly, Date >= "1994-06-30" & Date <= "2018-10-31")
 
 ```
 
@@ -1422,68 +1423,63 @@ overview_gdp
 # 9.1 Other statistics
 ```{r}
 deStats <- BRIC.maindata
-deStats <- subset(deStats,pf.size == "Big")
-# Total number of firms
+
 # BRIC
-length(unique(deStats$Id))
-# countrywise
-aggregate(Id ~ country.x, data = deStats, FUN=function(x) length(unique(x)))
-
-# minimum number of firms
-zu <- aggregate(Id ~ ym, data = deStats, FUN=function(x) length(unique(x)))
-min(zu$Id)
-mean(zu$Id)
-max(zu$Id)
-
-zu <- aggregate(Id ~ ym + country.x, data = deStats, FUN=function(x) length(unique(x))) # check individually
-zu_BRA <- subset(zu,country.x == "BRA")
-min(zu_BRA$Id)
-mean(zu_BRA$Id)
-max(zu_BRA$Id)
-zu_RUS <- subset(zu,country.x == "RUS")
-min(zu_RUS$Id)
-mean(zu_RUS$Id)
-max(zu_RUS$Id)
-zu_IND <- subset(zu,country.x == "IND")
-min(zu_IND$Id)
-mean(zu_IND$Id)
-max(zu_IND$Id)
-zu_CHN <- subset(zu,country.x == "CHN")
-min(zu_CHN$Id)
-mean(zu_CHN$Id)
-max(zu_CHN$Id)
-
-# size
-sum(deStats$MV.USD)
-su <- aggregate(MV.USD ~ ym + country.x, data = deStats, FUN=sum)
-su_BRA <- subset(su,country.x == "BRA")
-sum(su_BRA$MV.USD)/sum(deStats$MV.USD)
-mean(su_BRA$MV.USD)
-median(su_BRA$MV.USD)
-su_RUS <- subset(su,country.x == "RUS")
-sum(su_RUS$MV.USD)/sum(deStats$MV.USD)
-mean(su_RUS$MV.USD)
-median(su_RUS$MV.USD)
-su_IND <- subset(su,country.x == "IND")
-sum(su_IND$MV.USD)/sum(deStats$MV.USD)
-mean(su_IND$MV.USD)
-median(su_IND$MV.USD)
-su_CHN <- subset(su,country.x == "CHN")
-sum(su_CHN$MV.USD)/sum(deStats$MV.USD)
-mean(su_CHN$MV.USD)
-median(su_CHN$MV.USD)
-
+tu <- aggregate(Id ~ ym, data = deStats, FUN=function(x) length(unique(x)))
 fu <- aggregate(MV.USD ~ ym, data = deStats, FUN=sum)
-mean(fu$MV.USD)
-median(fu$MV.USD)
 
+BRIC_descriptiveStats <- rbind(length(unique(deStats$Id)),min(tu$Id),round(mean(tu$Id),digits = 2),max(tu$Id),format(mean(fu$MV.USD),scientific = TRUE),format(median(fu$MV.USD),scientific = TRUE),format(sum(deStats$MV.USD),scientific = TRUE),100,as.character(min(tu$ym)),as.character(max(tu$ym)))
+colnames(BRIC_descriptiveStats)[1] <- "BRIC"
+colnames(BRIC_descriptiveStats)[1] <- "BRIC"
 
+# countrywise
+wu <- aggregate(Id ~ country.x, data = deStats, FUN=function(x) length(unique(x)))
+zu <- aggregate(Id ~ ym + country.x, data = deStats, FUN=function(x) length(unique(x))) # check individually
+su <- aggregate(MV.USD ~ ym + country.x, data = deStats, FUN=sum)
+
+# BRA
+wu_BRA <- subset(wu,country.x == "BRA")
+zu_BRA <- subset(zu,country.x == "BRA")
+su_BRA <- subset(su,country.x == "BRA")
+
+BRA <- rbind(wu_BRA$Id,min(zu_BRA$Id),round(mean(zu_BRA$Id),digits = 2),max(zu_BRA$Id),format(mean(su_BRA$MV.USD),scientific = TRUE),format(median(su_BRA$MV.USD),scientific = TRUE),format(sum(su_BRA$MV.USD),scientific = TRUE),round(as.double((sum(su_BRA$MV.USD)*100)/sum(deStats$MV.USD)),digits = 2),as.character(min(su_BRA$ym)),as.character(max(su_BRA$ym)))
+colnames(BRA)[1] <- "Brazil"
+
+# RUS
+wu_RUS <- subset(wu,country.x == "RUS")
+zu_RUS <- subset(zu,country.x == "RUS")
+su_RUS <- subset(su,country.x == "RUS")
+
+RUS <- rbind(wu_RUS$Id,min(zu_RUS$Id),round(mean(zu_RUS$Id),digits = 2),max(zu_RUS$Id),format(mean(su_RUS$MV.USD),scientific = TRUE),format(median(su_RUS$MV.USD),scientific = TRUE),format(sum(su_RUS$MV.USD),scientific = TRUE),round(as.double((sum(su_RUS$MV.USD)*100)/sum(deStats$MV.USD)),digits = 2),as.character(min(su_RUS$ym)),as.character(max(su_RUS$ym)))
+colnames(RUS)[1] <- "Russia"
+
+# IND
+wu_IND <- subset(wu,country.x == "IND")
+zu_IND <- subset(zu,country.x == "IND")
+su_IND <- subset(su,country.x == "IND")
+
+IND <- rbind(wu_IND$Id,min(zu_IND$Id),round(mean(zu_IND$Id),digits = 2),max(zu_IND$Id),format(mean(su_IND$MV.USD),scientific = TRUE),format(median(su_IND$MV.USD),scientific = TRUE),format(sum(su_IND$MV.USD),scientific = TRUE),round(as.double((sum(su_IND$MV.USD)*100)/sum(deStats$MV.USD)),digits = 2),as.character(min(su_IND$ym)),as.character(max(su_IND$ym)))
+colnames(IND)[1] <- "India"
+
+# CHN
+wu_CHN <- subset(wu,country.x == "CHN")
+zu_CHN <- subset(zu,country.x == "CHN")
+su_CHN <- subset(su,country.x == "CHN")
+
+CHN <- rbind(wu_CHN$Id,min(zu_CHN$Id),round(mean(zu_CHN$Id),digits = 2),max(zu_CHN$Id),format(mean(su_CHN$MV.USD),scientific = TRUE),format(median(su_CHN$MV.USD),scientific = TRUE),format(sum(su_CHN$MV.USD),scientific = TRUE),round(as.double((sum(su_CHN$MV.USD)*100)/sum(deStats$MV.USD)),digits = 2),as.character(min(su_CHN$ym)),as.character(max(su_CHN$ym)))
+colnames(CHN)[1] <- "China"
+
+# one data frame
+descriptive_statistics <- cbind(BRIC_descriptiveStats,BRA,RUS,IND,CHN)
+rownames(descriptive_statistics)[1:10] <- rbind("Total no. firms","Min no. firms","Mean no. firms","Max no. firms","Mean size in USD","Median size in USD","Total size in USD","% of total size","Start ym","End ym")
+
+save(descriptive_statistics,file = "descriptive_statistics.RData")
 ```
 # A.1
 ```{r}
 # crazy combination trial
 ##5.1 Value Breakpoints
-```{r}
+
 BRIC.strategy <- BRIC.maindata
 
 colnames(BRIC.strategy)
@@ -1515,11 +1511,8 @@ BRIC.strategy[ , pf.value := ifelse(BM>median2,"Value",(ifelse(BM<=median2,"Grow
 
 table(BRIC.strategy$pf.value)
 dim(BRIC.strategy)
-```
 
-##5.2 Low Vol
-Strategy implementation on the balanced panel data (Multifactor etf)
-```{r}
+---
 
 # Determine the low_vol breakpoints based on big stocks only
 hlpvariable2 <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
@@ -1535,10 +1528,8 @@ BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(vola
 table(BRIC.strategy$pf.low_vol)
 dim(BRIC.strategy)
 
-```
-
-##5.3 Filtering for multiple strategy requirements
-```{r}
+--- 
+  
 # filtering for growth stocks
 BRIC.strategy_1 <- subset(BRIC.strategy, pf.growth == "Growth" )
 BRIC.strategy_2 <- subset(BRIC.strategy, pf.value == "Value" )
