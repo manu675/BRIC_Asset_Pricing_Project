@@ -1473,7 +1473,11 @@ colnames(CHN)[1] <- "China"
 descriptive_statistics <- cbind(BRIC_descriptiveStats,BRA,RUS,IND,CHN)
 rownames(descriptive_statistics)[1:10] <- rbind("Total no. firms","Min no. firms","Mean no. firms","Max no. firms","Mean size in USD","Median size in USD","Total size in USD","% of total size","Start ym","End ym")
 
+descriptive_statistics <- as.data.frame(descriptive_statistics)
+
+library("writexl")
 save(descriptive_statistics,file = "descriptive_statistics.RData")
+write_xlsx(descriptive_statistics,"descriptive_statistics.xlsx")
 ```
 # A.1
 ```{r}
