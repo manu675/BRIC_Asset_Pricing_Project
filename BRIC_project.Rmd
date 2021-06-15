@@ -376,9 +376,10 @@ BRIC.maindata <- filter(BRIC.maindata,BRIC.maindata$pf.size != "Micro")
 RiRF used for benchmark in p.50 lecture slides
 For annualisation we used arithmetic average * 12
 
-## 4.4 Benchmark (Value weighted)
+## 4.4 - 4.5 Benchmark and Market
 
 ```{r}
+# 4.4 Benchmark (Value weighted) ----
 # create copy
 BRIC.benchmark <- BRIC.maindata
 
@@ -433,9 +434,9 @@ colnames(benchmark_Country)[3] <- "YearlyReturn"
 colnames(benchmark_Country)[4] <- "YearlyExcessReturn"
 colnames(benchmark_Country)[6] <- "MonthlyReturn"
 colnames(benchmark_Country)[7] <- "MonthlyExcessReturn"
-```
-## 4.5 Market (Excess) Return
-```{r}
+
+# 4.5 Market (Excess) Return ----
+
 # create copy
 BRIC.market <- BRIC.maindata
 
@@ -488,9 +489,6 @@ colnames(market_Country)[4] <- "YearlyExcessReturn"
 colnames(market_Country)[6] <- "MonthlyReturn"
 colnames(market_Country)[7] <- "MonthlyExcessReturn"
 ```
-
- Breakpoints for RMW and CMA are based on Jiao(2017) and FF(2015) 2x3 sort = NYSE Percentiles (FF(2015) p.6)
-![PortfolioSorts.] ("Images/PortfolioSorts.jpg")
 ## 4.6 - 4.8 Determine other breakpoints
 ```{r}
 
@@ -562,10 +560,6 @@ BRIC.maindata[ , pf.ac := ifelse(AssetGrowth>ac_bb70,"Aggressive",ifelse((AssetG
 
 BRIC.maindata[, SIZE_INVESTMENT := paste0(pf.size,".",pf.ac)]
 ```
-
-
-https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_5_factors_2x3.html
-
 ##4.9 Calculate Factors
 ```{r}
 # HML ----
@@ -657,10 +651,8 @@ factors <- subset(factors, select = c("ym","RMRF","CMA","HML","HML_DEVIL","RMW",
 factors$SMB <- ((factors$SMB_HML + factors$SMB_RMW + factors$SMB_CMA)/3)
 factors <- subset(factors, select = c("ym","RMRF","SMB","HML","HML_DEVIL","RMW","CMA","MOM"))
 
-summary(factors)
-
-
-summary(BRIC.maindata$BM)
+#summary(factors)
+#summary(BRIC.maindata$BM)
 ```
 
 ```{r}
@@ -668,62 +660,47 @@ summary(BRIC.maindata$BM)
 cor(select(BRIC.static, where(is.numeric)))
 ```
 
-**Some conventions:**
+# 5 Strategy Sorting
 
-Characteristic should be calculated as in Hanauer & Lauterbach (2019) or in Hanauer (2020)
-
-Big stocks should be defined as the biggest stocks which together account for 90% of a
-country's aggregated market capitalization
-Benchmark should be defined as the cap-weighted universe of big stocks
-Returns should be in USD
-Breakpoints (for Fama-French factors) should be calculated on big stocks (as in the
-excursus) but both small and big stocks go into the factor calculation.
-
-
-
-
-#5.STRATEGY - Multifactor Portfolio sort
 Momentum sorting is done during #2.
 ```{r}
-##5.1 Value Breakpoints ----
 BRIC.strategy <- BRIC.maindata
 
-colnames(BRIC.strategy)
-
-## Value factor
-## creating a large cap and high B/M ratio column (large cap value)
+# 5.1 Value Breakpoints ----
 
 # subsetting the large cap stocks only (rebalanced yearly)
 BRIC.strategy <- subset(BRIC.strategy, pf.size == "Big" )
 
-# subsetting only value stocks (cutoff = median) Look up CUTOFF details
-# Determine the value breakpoints
-hlpvariable2 <- BRIC.strategy[month==7, .(median = quantile(BM , probs = c(0.5), na.rm=T)),by=year]
-              
-# Merge the value portfolio allocation back from July Y to June Y+1
-BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
+# 5.1.1 B/M Devil ----
+helper <- BRIC.strategy[month==7, .(median_devil = quantile(BM_Devil , probs = c(0.5), na.rm=T)),by=year]
+BRIC.strategy <- merge(BRIC.strategy,helper,
                        by.x=c("hcjun"),
                        by.y=c("year"),
                        all.x=T)
+BRIC.strategy[ , pf.growth := ifelse(BM_Devil>median_devil,"Value",(ifelse(BM_Devil<=median_devil,"Growth",NA)))]
 
-BRIC.strategy[ , pf.value := ifelse(BM>median,"Value",(ifelse(BM<=median,"Growth",NA)))]
+# 5.1.2 normal B/M ----
 
-##5.2 Low Vol ----
-# Determine the low_vol breakpoints based on big stocks only
-hlpvariable2 <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
-              
-# Merge the low_vol portfolio allocation back from July Y to June Y+1
-BRIC.strategy <- merge(BRIC.strategy,hlpvariable2,
+helper <- BRIC.strategy[month==7, .(median_normal = quantile(BM, probs = c(0.5), na.rm=T)),by=year]
+BRIC.strategy <- merge(BRIC.strategy,helper,
                        by.x=c("hcjun"),
                        by.y=c("year"),
                        all.x=T)
+BRIC.strategy[ , pf.value := ifelse(BM>median_normal,"Value",(ifelse(BM<=median_normal,"Growth",NA)))]
 
+# 5.2 Low Vol ----
+helper <- BRIC.strategy[month==7, .(lower_20 = quantile(volatility , probs = c(0.2), na.rm=T)),by=year]
+BRIC.strategy <- merge(BRIC.strategy,helper,
+                       by.x=c("hcjun"),
+                       by.y=c("year"),
+                       all.x=T)
 BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(volatility<=lower_20,"LowVol",NA)))]
 
-##5.3 Filtering for strategy requirements ----
+# 5.3 Filtering ----
 
-# filtering for growth stocks
-BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
+# filtering for growth or value stocks PLEASE COMMENT OUT and DECOMMENT OUT respectively
+#BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
+BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
 
 # filtering for lowVol stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
@@ -735,7 +712,7 @@ BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
 strategy <- BRIC.strategy
 ```
 
-# 1/4ly rebalancing
+## 5.4 1/4ly rebalancing
 ```{r}
 # We can use the %in% operator to filter data by a logical vector
 # setting up a df with the right months for quarterly rebalancing
@@ -760,93 +737,38 @@ qfull$RiRF <- qfull$RET.USD - as.double(qfull$RF)
 
 strategy <- qfull
 ```
-## 5.4 Statistics on Strategy portfolio
+
+# 6 Portfolio Statistics
 ```{r}
-strat.EqualWeights <- aggregate(Id ~ ym, data = BRIC.strategy, FUN=function(x) length(unique(x)))
-colnames(strat.EqualWeights)[2] <- "NumberOfStocks"
-# average number of stocks
-strategy.avgNumberOfStocks <- sum(strat.EqualWeights$NumberOfStocks)/length(strat.EqualWeights$NumberOfStocks)
+## when using equal weights don't run until BREAK
 
-bench.EqualWeights <- aggregate(Id ~ ym, data = BRIC.benchmark, FUN=function(x) length(unique(x)))
-colnames(bench.EqualWeights)[2] <- "NumberOfStocks"
-# average number of stocks
-benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(bench.EqualWeights$NumberOfStocks)
-```
-
-#6 Portfolio Statistics
-All teams should perform the following analyses:
-
-- A clear description of the strategy design (approach, weighting, rebalancing,...)
-- Portfolio characteristics (ann. turnover, avg. number of stocks, portfolio concentration)
-- Performance statistics (return, volatility, Sharpe ratio, outperformance, tracking error,
-information ratio, all annualized)
-- Visualize cumulative performance and outperformance
-- Regress portfolio performance on FF5FM + Momentum for style analysis
-- Provide the time-series of the your strategy, the benchmark, and Fama-French factors as
-RData file
-
-## 6.1 Weight column for BRIC.strategy
-NOTE RUN only one of the 6.0.x junks
-### 6.1.1 Equal weights
-// Every stock has the same weight within a ym
-```{r}
-# assign a new working variable
-#strategy <- BRIC.strategy
-
-strategy.EqualWeights <- aggregate(Id ~ ym, data = strategy, FUN=function(x) length(unique(x)))
-colnames(strategy.EqualWeights)[2] <- "NumberOfStocks"
-
-## join value weights to stocks
-strategy <- inner_join(x = strategy, y = strategy.EqualWeights, by = "ym")
-
-## calculate value weight
-strategy$Weight <- 1/strategy$NumberOfStocks
-
-## calculate value weight excess return / return
-strategy$wRet <- strategy$Weight*strategy$RET.USD
-strategy$wExRet <- strategy$Weight * strategy$RiRF
-
-# TOP 10 ----
-strategy.EqualWeights$weight <- 1/strat.EqualWeights$NumberOfStocks
-strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
-```
-### 6.1.2 Value weights
-// every stock has a weight according to its marketcap in the ym
-```{r}
-#assign a new working variable
-#strategy <- BRIC.strategy
+# 6.1 Value weights ----
 
 # value weight returns
-## calculate monthly market value over all stocks
+# calculate monthly market value over all stocks
 strategy.valueWeights <- aggregate(LMV.USD ~ ym, data = strategy, FUN = sum)
 colnames(strategy.valueWeights)[2] <- "TotalValue"
 
-## join value weights to stocks
+# join value weights to stocks
 strategy <- inner_join(x = strategy, y = strategy.valueWeights, by = "ym")
 
-## calculate value weight
+# calculate value weight
 strategy$Weight <- strategy$LMV.USD/strategy$TotalValue
 
-## calculate value weight excess return / return
+# calculate value weight excess return / return
 strategy$wRet <- strategy$Weight*strategy$RET.USD
 strategy$wExRet <- strategy$Weight * strategy$RiRF
 
-# TOP 10 ----
+## TOP 10 ----
 strategy_topTen <- strategy %>% arrange(desc(Weight)) %>% group_by(ym) %>% top_n(wt=Weight,10)
 strategy.topTenBricY <- aggregate(Weight ~ ym, data = strategy_topTen, FUN = sum)
 strategy.topTenBricT <- mean(strategy.topTenBricY$Weight)
 
-```
+## BREAK ... run from here when using equal weights
 
+# 6.2 Strategy Statistics ----
 
-
-
-
-## 6.2 Strategy Statistics
-
-```{r}
-
-# RETURNS ----
+## RETURNS ----
 
 # per month
 strategy.retBricM_intermediate <- aggregate(cbind(wRet,wExRet) ~ ym + hcjun, data = strategy,FUN = sum)
@@ -882,16 +804,16 @@ strategy.retBricT <- mean(strategy.retBricY$wRet) # 15.329091 %
 # mean excess return of whole period
 strategy.retExBricT <- mean(strategy.retBricY$wExRet) # 13.111509 %
 
-# STANDARD DEVIATION ----
+## STANDARD DEVIATION ----
 
 # we calculate the sd out of the annualised portfolio returns
 strategy.sdBricT <- sd(strategy.retBricY$wRet) # 37.155688
 
-# SHARP RATIO ----
+## SHARP RATIO ----
 
 strategy.srBricT <- strategy.retExBricT/strategy.sdBricT # 0.352880
 
-# MAX DRAWDOWN ----
+## MAX DRAWDOWN ----
 
 drawdown <- function(ret) {
    cum.ret  <- c(0, cumsum(ret))
@@ -903,7 +825,7 @@ maxdrawdown <- function(ret)min(drawdown(ret))
 ret <- strategy.retBricY$wRet
 strategy.mdBricT <- maxdrawdown(ret) # -99.1467
 
-# TRACKING ERROR ----
+## TRACKING ERROR ----
 
 # merge portfolio returns and benchmark returns
 strategy_benchmark <- inner_join(x = strategy.retBricY, y = benchmark.retBricY, by = "hcjun")
@@ -914,31 +836,28 @@ colnames(strategy_benchmark)[5] <- "wExRet_benchmark"
 strategy_benchmark$pf_activeReturn <- strategy_benchmark$wRet_strategy - strategy_benchmark$wRet_benchmark
 strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
 
-# INFROMATION RATIO ----
+## INFROMATION RATIO ----
 
 strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
-```
 
+# 6.3 Benchmark statistics ----
 
-## 6.3 Benchmark Statistics
-
-```{r}
 # mean return of whole period
 benchmark.retBricT <- mean(benchmark.retBricY$wRet) 
 
 # mean excess return of whole period
 benchmark.retExBricT <- mean(benchmark.retBricY$wExRet)
 
-# STANDARD DEVIATION
+## STANDARD DEVIATION ----
 
 # we calculate the sd out of the annualised portfolio returns
 benchmark.sdBricT <- sd(benchmark.retBricY$wRet) 
 
-# SHARP RATIO
+## SHARP RATIO ----
 
 benchmark.srBricT <- benchmark.retExBricT/benchmark.sdBricT 
 
-# MAX DRAWDOWN
+## MAX DRAWDOWN ----
 
 drawdown <- function(ret) {
    cum.ret  <- c(0, cumsum(ret))
@@ -950,7 +869,7 @@ maxdrawdown <- function(ret)min(drawdown(ret))
 ret <- benchmark.retBricY$wRet
 benchmark.mdBricT <- maxdrawdown(ret) 
 
-# TRACKING ERROR
+## TRACKING ERROR ----
 
 # merge portfolio returns and benchmark returns
 benchmark_benchmark <- inner_join(x = benchmark.retBricY, y = benchmark.retBricY, by = "hcjun")
@@ -961,11 +880,11 @@ colnames(benchmark_benchmark)[5] <- "wExRet_benchmark"
 benchmark_benchmark$pf_activeReturn <- benchmark_benchmark$wRet_benchmark - benchmark_benchmark$wRet_benchmark
 benchmark.teBricT <- sd(benchmark_benchmark$pf_activeReturn)
 
-# INFROMATION RATIO
+## INFROMATION RATIO ----
 
 benchmark.irBricT <- mean(benchmark_benchmark$pf_activeReturn)/benchmark.teBricT
 
-# TOP 10 ----
+## TOP 10 ----
 benchmark_topTen <- BRIC.benchmark %>% arrange(desc(ValueWeight)) %>% group_by(ym) %>% top_n(wt=ValueWeight,10)
 benchmark.topTenBricY <- aggregate(ValueWeight ~ ym, data = benchmark_topTen, FUN = sum)
 benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
@@ -1026,16 +945,7 @@ s_turnover_pattern<-as.data.frame(s_turnover_pattern)
 benchmark.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
 ```
 
-
-## 6.5 Saving Statistics into a single data frame
-```{r}
-full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover)
-
-full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover)
-full_BRIC_ValueWeight
-```
-
-## 6.6 Effective N calculation
+## 6.5 Effective N calculation
 ```{r}
 #library(plyr)
 EFF_N<- ddply(.data = strategy, .(Id, year), 
@@ -1050,6 +960,13 @@ benchmark.eff_n <-mean(EFF_N_bm$invHHI) #-9.76
 benchmark.eff_n
 ```
 
+## 6.6 Saving Statistics into a single data frame
+```{r}
+full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover)
+
+full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover)
+full_BRIC_ValueWeight
+```
 
 # 7 Spanning tests (factor exposure)
 
@@ -1151,7 +1068,7 @@ jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width c
 strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
   geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
   geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
-  labs(y= "Cum. Log Returns", x = "Year", title ="Monthly Cum. Log Returns: 3FStrategy vs Benchmark") + # x and y axis lables and plot title
+  labs(y= "Cum. Log Returns", x = "Year", title ="Monthly Cum. Log Returns: 3FStrategy : 1-month growth vs Benchmark") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Portfolio", 
                       breaks = c("bm.cum_ret", "strat.cum_ret"),
@@ -1310,12 +1227,11 @@ overview_strategy <- ggplot(data = evolution, aes(x = ym)) +
   geom_line(aes(y = CHN, colour="CHN")) + 
   geom_line(aes(y = IND, colour="IND")) + 
   geom_line(aes(y = RUS, colour="RUS")) + 
-  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the 3FStrategy") + # x and y axis lables and plot title
+  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the 3FStrategy : 1-month growth") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA", "CHN", "IND", "RUS"),
                       values = c("red", "green", "blue","orange"))
-overview_strategy
 
 # second part of the code that creates the jpeg file of the plot
 dev.off()
@@ -1359,7 +1275,6 @@ overview_benchmark <- ggplot(data = evolution, aes(x = ym)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA", "CHN", "IND", "RUS"),
                       values = c("red", "green", "blue","orange"))
-overview_benchmark
 
 # second part of the code that creates the jpeg file of the plot
 dev.off()
@@ -1417,12 +1332,15 @@ overview_gdp <- ggplot(data = GDPData, aes(x = year)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
                       values = c("red", "green", "blue","orange"))
-overview_gdp
 
+overview_strategy
+overview_benchmark
+overview_gdp
 ```
 # 9.1 Other statistics
 ```{r}
 deStats <- BRIC.maindata
+deStats <- subset(deStats, pf.size == "Big" )
 
 # BRIC
 tu <- aggregate(Id ~ ym, data = deStats, FUN=function(x) length(unique(x)))
@@ -1479,6 +1397,34 @@ library("writexl")
 save(descriptive_statistics,file = "descriptive_statistics.RData")
 write_xlsx(descriptive_statistics,"descriptive_statistics.xlsx")
 ```
+### 6.1 (ALTERNATIVE) Equal weights 
+// rarely used... don't run value weights part in 6 when running this!!
+// Every stock has the same weight within a ym
+```{r}
+# assign a new working variable
+#strategy <- BRIC.strategy
+
+strategy.EqualWeights <- aggregate(Id ~ ym, data = strategy, FUN=function(x) length(unique(x)))
+colnames(strategy.EqualWeights)[2] <- "NumberOfStocks"
+
+## join value weights to stocks
+strategy <- inner_join(x = strategy, y = strategy.EqualWeights, by = "ym")
+
+## calculate value weight
+strategy$Weight <- 1/strategy$NumberOfStocks
+
+## calculate value weight excess return / return
+strategy$wRet <- strategy$Weight*strategy$RET.USD
+strategy$wExRet <- strategy$Weight * strategy$RiRF
+
+# TOP 10 ----
+strategy.EqualWeights$weight <- 1/strat.EqualWeights$NumberOfStocks
+strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
+```
+
+
+
+
 # A.1
 ```{r}
 # crazy combination trial
