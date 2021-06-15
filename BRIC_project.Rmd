@@ -699,8 +699,8 @@ BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(vola
 # 5.3 Filtering ----
 
 # filtering for growth or value stocks PLEASE COMMENT OUT and DECOMMENT OUT respectively
-BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
-#BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
+#BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
+BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
 
 # filtering for lowVol stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
@@ -791,7 +791,7 @@ strategy.retBricM$wExRet <- strategy.retBricM$wExRet %>% replace_na(0)
 strategy.retBricM[,wRetNew := ifelse(!is.na(wRet),wRet,RF)]
 strategy.retBricM$wRet <- as.double(strategy.retBricM$wRetNew)
 # rename
-colnames(strategy.retBricM)[5] <- "hcjun"
+colnames(strategy.retBricM)[6] <- "hcjun"
 
 strategy.retBricM <- subset(strategy.retBricM, select = c("ym","hcjun","wRet","wExRet"))
 
@@ -801,19 +801,19 @@ strategy.retBricY <- aggregate(cbind(wRet,wExRet) ~ hcjun, data = strategy.retBr
 strategy.retBricY$wRet <- strategy.retBricY$wRet * 12
 strategy.retBricY$wExRet <- strategy.retBricY$wExRet * 12
 # mean return of whole period
-strategy.retBricT <- mean(strategy.retBricY$wRet) # 15.329091 %
+strategy.retBricT <- mean(strategy.retBricY$wRet) 
 
 # mean excess return of whole period
-strategy.retExBricT <- mean(strategy.retBricY$wExRet) # 13.111509 %
+strategy.retExBricT <- mean(strategy.retBricY$wExRet) 
 
 ## STANDARD DEVIATION ----
 
 # we calculate the sd out of the annualised portfolio returns
-strategy.sdBricT <- sd(strategy.retBricY$wRet) # 37.155688
+strategy.sdBricT <- sd(strategy.retBricY$wRet) 
 
 ## SHARP RATIO ----
 
-strategy.srBricT <- strategy.retExBricT/strategy.sdBricT # 0.352880
+strategy.srBricT <- strategy.retExBricT/strategy.sdBricT 
 
 ## MAX DRAWDOWN ----
 
@@ -825,7 +825,7 @@ drawdown <- function(ret) {
 
 maxdrawdown <- function(ret)min(drawdown(ret))
 ret <- strategy.retBricY$wRet
-strategy.mdBricT <- maxdrawdown(ret) # -99.1467
+strategy.mdBricT <- maxdrawdown(ret) 
 
 ## TRACKING ERROR ----
 
@@ -836,11 +836,18 @@ colnames(strategy_benchmark)[3] <- "wExRet_strategy"
 colnames(strategy_benchmark)[4] <- "wRet_benchmark"
 colnames(strategy_benchmark)[5] <- "wExRet_benchmark"
 strategy_benchmark$pf_activeReturn <- strategy_benchmark$wRet_strategy - strategy_benchmark$wRet_benchmark
-strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) # 26.831411 %
+strategy.teBricT <- sd(strategy_benchmark$pf_activeReturn) 
 
 ## INFROMATION RATIO ----
 
-strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT # 0.26754
+strategy.irBricT <- mean(strategy_benchmark$pf_activeReturn)/strategy.teBricT 
+
+## EFFECTIVE N ----
+effectiveN <- subset(strategy,select = c("ym","Id","Weight"))
+effectiveN$WeightSquare <- effectiveN$Weight * effectiveN$Weight
+strategy.effectiveNM <- aggregate(WeightSquare ~ ym,data = effectiveN, FUN = sum)
+strategy.effectiveNM$effN <- 1/strategy.effectiveNM$WeightSquare
+strategy.effectiveNT <- mean(strategy.effectiveNM$effN)
 
 # 6.3 Benchmark statistics ----
 
@@ -891,6 +898,12 @@ benchmark_topTen <- BRIC.benchmark %>% arrange(desc(ValueWeight)) %>% group_by(y
 benchmark.topTenBricY <- aggregate(ValueWeight ~ ym, data = benchmark_topTen, FUN = sum)
 benchmark.topTenBricT <- mean(benchmark.topTenBricY$ValueWeight)
 
+## EFFECTIVE N ----
+effectiveNBe <- subset(BRIC.benchmark,select = c("ym","Id","ValueWeight"))
+effectiveNBe$WeightSquare <- effectiveNBe$ValueWeight * effectiveNBe$ValueWeight
+benchmark.effectiveNM <- aggregate(WeightSquare ~ ym,data = effectiveNBe, FUN = sum)
+benchmark.effectiveNM$effN <- 1/benchmark.effectiveNM$WeightSquare
+benchmark.effectiveNT <- mean(benchmark.effectiveNM$effN)
 ```
 
 ## 6.4 Turnover
@@ -946,28 +959,11 @@ colnames(s_turnover_pattern)[1] <- "one"
 s_turnover_pattern<-as.data.frame(s_turnover_pattern)
 benchmark.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
 ```
-
-## 6.5 Effective N calculation
-```{r}
-#library(plyr)
-EFF_N<- ddply(.data = strategy, .(Id, year), 
-                summarize,  # Calculate an inverse HHI
-                invHHI = sum(table(Weight))^2 / sum(table(Weight)^2))
-strategy.eff_n <- (sum(EFF_N$invHHI) / (nrow(EFF_N))) #-3.58
-
-EFF_N_bm<- ddply(.data = BRIC.benchmark, .(Id, year), 
-                summarize,  # Calculate an inverse HHI
-                invHHI = sum(table(ValueWeight))^2 / sum(table(ValueWeight)^2))
-benchmark.eff_n <-mean(EFF_N_bm$invHHI) #-9.76
-benchmark.eff_n
-```
-
 ## 6.6 Saving Statistics into a single data frame
 ```{r}
-full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover)
+full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover,strategy.effectiveNT)
 
-full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover)
-full_BRIC_ValueWeight
+full_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover,benchmark.effectiveNT)
 ```
 
 # 7 Spanning tests (factor exposure)
@@ -1357,9 +1353,6 @@ strategy$wExRet <- strategy$Weight * strategy$RiRF
 strategy.EqualWeights$weight <- 1/strat.EqualWeights$NumberOfStocks
 strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
 ```
-
-
-
 
 # A.1 Crazy combination
 ```{r}
