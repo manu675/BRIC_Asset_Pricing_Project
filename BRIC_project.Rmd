@@ -995,14 +995,7 @@ summary(turnover_pattern_benchmark$turnover)
 benchmark.turnover<- mean(turnover_pattern_benchmark$turnover)
 #plot(x=turnover_pattern_benchmark$ym,y=turnover_pattern_benchmark$turnover)
 ```
-
-## 6.4 Turnover
-```{r}
-
-
-
-```
-## 6.6 Saving Statistics into a single data frame
+## 6.4 Saving Statistics into a single data frame
 ```{r}
 full_BRIC_ValueWeight <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover,strategy.effectiveNT)
 

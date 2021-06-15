@@ -1,0 +1,76 @@
+@article{hanauer2019cross,
+  title={The cross-section of emerging market stock returns},
+  author={Hanauer, Matthias X and Lauterbach, Jochim G},
+  journal={Emerging Markets Review},
+  volume={38},
+  pages={265--286},
+  year={2019},
+  publisher={Elsevier}
+}
+
+@article{grinblatt2004predicting,
+  title={Predicting stock price movements from past returns: The role of consistency and tax-loss selling},
+  author={Grinblatt, Mark and Moskowitz, Tobias J},
+  journal={Journal of Financial Economics},
+  volume={71},
+  number={3},
+  pages={541--579},
+  year={2004},
+  publisher={Elsevier}
+}
+
+@article{fama2015five,
+  title={A five-factor asset pricing model},
+  author={Fama, Eugene F and French, Kenneth R},
+  journal={Journal of financial economics},
+  volume={116},
+  number={1},
+  pages={1--22},
+  year={2015},
+  publisher={Elsevier}
+}
+
+@article{cooper2008asset,
+  title={Asset growth and the cross-section of stock returns},
+  author={Cooper, Michael J and Gulen, Huseyin and Schill, Michael J},
+  journal={the Journal of Finance},
+  volume={63},
+  number={4},
+  pages={1609--1651},
+  year={2008},
+  publisher={Wiley Online Library}
+}
+
+@article{asness2013devil,
+  title={The devil in HML’s details},
+  author={Asness, Clifford and Frazzini, Andrea},
+  journal={The Journal of Portfolio Management},
+  volume={39},
+  number={4},
+  pages={49--68},
+  year={2013},
+  publisher={Institutional Investor Journals Umbrella}
+}
+
+@article{barillas2018comparing,
+  title={Comparing asset pricing models},
+  author={Barillas, Francisco and Shanken, Jay},
+  journal={The Journal of Finance},
+  volume={73},
+  number={2},
+  pages={715--754},
+  year={2018},
+  publisher={Wiley Online Library}
+}
+
+@article{fama2012size,
+  title={Size, value, and momentum in international stock returns},
+  author={Fama, Eugene F and French, Kenneth R},
+  journal={Journal of financial economics},
+  volume={105},
+  number={3},
+  pages={457--472},
+  year={2012},
+  publisher={Elsevier}
+}
+
