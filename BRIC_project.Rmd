@@ -41,6 +41,8 @@ library(tidyverse)
 library(readr)
 library(ggplot2)
 library(reshape2)
+library(reshape)
+library(xts)
 ```
 # 0.2 Loading in the R.data
 
@@ -706,9 +708,9 @@ BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 
 # filtering for winner stocks
-BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
+#BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
 # custom momentum
-#BRIC.strategy <- subset(BRIC.strategy, pf.customMomentum == "Winner" )
+BRIC.strategy <- subset(BRIC.strategy, pf.customMomentum == "Winner" )
 
 # assign new variable
 strategy <- BRIC.strategy
@@ -849,6 +851,50 @@ strategy.effectiveNM <- aggregate(WeightSquare ~ ym,data = effectiveN, FUN = sum
 strategy.effectiveNM$effN <- 1/strategy.effectiveNM$WeightSquare
 strategy.effectiveNT <- mean(strategy.effectiveNM$effN)
 
+## TURNOVER ----
+#filtering out unnecessary columns
+turnover_calc_strategy <-subset(strategy,select= c("Id","ym","Weight","RET.USD"))
+turnover_calc_strategy$RET.USD <- turnover_calc_strategy$RET.USD*(1/100)
+# lagging Weight to get xi,t-1
+s_weights_strategy<- subset(turnover_calc_strategy,select= c("Id","ym","Weight"))
+s_weights_strategy<-reshape(s_weights_strategy, idvar = "ym", timevar = "Id", direction = "wide")
+s_weights_strategy[is.na(s_weights_strategy)]=0
+s_weights_strategy<-as.data.frame(s_weights_strategy)
+s_lag_weights_strategy <-s_weights_strategy%>% mutate_at(vars(-"ym"),lag)
+x.prevweight_strategy<-reshape(s_lag_weights_strategy, 
+        direction = "long",idvar = "ym")
+colnames(x.prevweight_strategy)[3]<-"WeightPrevPeriod"
+#lagging RET.USD to get ri,t-1
+s_returns_strategy<-subset(turnover_calc_strategy,select=c("Id","ym","RET.USD"))
+#filtering for stocks in Strategy frame
+s_returns_strategy<-setDT(s_returns_strategy)[Id %chin% turnover_calc_strategy$Id]
+s_returns_strategy <-reshape(s_returns_strategy, idvar = "ym", timevar = "Id", direction = "wide")
+s_returns_strategy [is.na(s_returns_strategy)]=0
+s_returns_strategy <-as.data.frame(s_returns_strategy)
+s_lag_returns_strategy <-s_returns_strategy %>% mutate_at(vars(-"ym"),lag)
+x.prevret_strategy<-reshape(s_lag_returns_strategy, direction = "long",idvar = "ym")
+colnames(x.prevret_strategy)[3]<-"RET.USDPrevPeriod"
+x.prevret_strategy$RET.USDPrevPeriod <- x.prevret_strategy$RET.USDPrevPeriod*(1/100)
+#leftjoining RET.USDPrevPeriod & WeightPrevPeriod to turnover_calc_strategy (aka strategy frame)
+turnover_calc_strategy<-left_join(turnover_calc_strategy,x.prevweight_strategy,by = c("Id","ym"))
+turnover_calc_strategy<-left_join(turnover_calc_strategy,x.prevret_strategy,by = c("Id","ym"))
+turnover_calc_strategy [is.na(turnover_calc_strategy)]=0
+#calculating x epsilon thing
+#numerator
+turnover_calc_strategy$x_epsilon_numerator_strategy <- turnover_calc_strategy$WeightPrevPeriod * (1+turnover_calc_strategy$RET.USDPrevPeriod)
+x_epsilon_denominator_strategy <-aggregate(x_epsilon_numerator_strategy~ym,data = turnover_calc_strategy,FUN = sum)
+colnames(x_epsilon_denominator_strategy)[2]<-"x_epsilon_denominator_strategy"
+turnover_calc_strategy <-left_join(turnover_calc_strategy,x_epsilon_denominator_strategy,by="ym")
+turnover_calc_strategy$x_epsilon_strategy <- turnover_calc_strategy$x_epsilon_numerator_strategy / turnover_calc_strategy$x_epsilon_denominator_strategy
+turnover_calc_strategy [is.na(turnover_calc_strategy)]=0
+turnover_calc_strategy$turnover = (turnover_calc_strategy$Weight - turnover_calc_strategy$x_epsilon_strategy) 
+turnover_calc_strategy$turnover <- abs(turnover_calc_strategy$turnover)
+turnover_pattern_strategy <- aggregate(turnover~ym,data = turnover_calc_strategy,FUN = sum)
+turnover_pattern_strategy$turnover<- 0.5*turnover_pattern_strategy$turnover
+summary(turnover_pattern_strategy$turnover)
+strategy.turnover<- mean(turnover_pattern_strategy$turnover)
+#plot(x=turnover_pattern_strategy$ym,y=turnover_pattern_strategy$turnover)
+
 # 6.3 Benchmark statistics ----
 
 # mean return of whole period
@@ -904,60 +950,57 @@ effectiveNBe$WeightSquare <- effectiveNBe$ValueWeight * effectiveNBe$ValueWeight
 benchmark.effectiveNM <- aggregate(WeightSquare ~ ym,data = effectiveNBe, FUN = sum)
 benchmark.effectiveNM$effN <- 1/benchmark.effectiveNM$WeightSquare
 benchmark.effectiveNT <- mean(benchmark.effectiveNM$effN)
+
+## TURNOVER ----
+#filtering out unnecessary columns
+turnover_calc_benchmark <-subset(BRIC.benchmark,select= c("Id","ym","ValueWeight","RET.USD"))
+turnover_calc_benchmark$RET.USD <- turnover_calc_benchmark$RET.USD*(1/100)
+# lagging Weight to get xi,t-1
+s_weights_benchmark<- subset(turnover_calc_benchmark,select= c("Id","ym","ValueWeight"))
+s_weights_benchmark<-reshape(s_weights_benchmark, idvar = "ym", timevar = "Id", direction = "wide")
+s_weights_benchmark[is.na(s_weights_benchmark)]=0
+s_weights_benchmark<-as.data.frame(s_weights_benchmark)
+s_lag_weights_benchmark <-s_weights_benchmark%>% mutate_at(vars(-"ym"),lag)
+x.prevweight_benchmark<-reshape(s_lag_weights_benchmark, 
+        direction = "long",idvar = "ym")
+colnames(x.prevweight_benchmark)[3]<-"WeightPrevPeriod"
+#lagging RET.USD to get ri,t-1
+s_returns_benchmark<-subset(turnover_calc_benchmark,select=c("Id","ym","RET.USD"))
+#filtering for stocks in benchmark frame
+s_returns_benchmark<-setDT(s_returns_benchmark)[Id %chin% turnover_calc_benchmark$Id]
+s_returns_benchmark <-reshape(s_returns_benchmark, idvar = "ym", timevar = "Id", direction = "wide")
+s_returns_benchmark [is.na(s_returns_benchmark)]=0
+s_returns_benchmark <-as.data.frame(s_returns_benchmark)
+s_lag_returns_benchmark <-s_returns_benchmark %>% mutate_at(vars(-"ym"),lag)
+x.prevret_benchmark<-reshape(s_lag_returns_benchmark, direction = "long",idvar = "ym")
+colnames(x.prevret_benchmark)[3]<-"RET.USDPrevPeriod"
+x.prevret_benchmark$RET.USDPrevPeriod <- x.prevret_benchmark$RET.USDPrevPeriod*(1/100)
+#leftjoining RET.USDPrevPeriod & WeightPrevPeriod to turnover_calc_benchmark (aka benchmark frame)
+turnover_calc_benchmark<-left_join(turnover_calc_benchmark,x.prevweight_benchmark,by = c("Id","ym"))
+turnover_calc_benchmark<-left_join(turnover_calc_benchmark,x.prevret_benchmark,by = c("Id","ym"))
+turnover_calc_benchmark [is.na(turnover_calc_benchmark)]=0
+#calculating x epsilon thin
+#numerator
+turnover_calc_benchmark$x_epsilon_numerator_benchmark <- turnover_calc_benchmark$WeightPrevPeriod * (1+turnover_calc_benchmark$RET.USDPrevPeriod)
+x_epsilon_denominator_benchmark <-aggregate(x_epsilon_numerator_benchmark~ym,data = turnover_calc_benchmark,FUN = sum)
+colnames(x_epsilon_denominator_benchmark)[2]<-"x_epsilon_denominator_benchmark"
+turnover_calc_benchmark <-left_join(turnover_calc_benchmark,x_epsilon_denominator_benchmark,by="ym")
+turnover_calc_benchmark$x_epsilon_benchmark <- turnover_calc_benchmark$x_epsilon_numerator_benchmark / turnover_calc_benchmark$x_epsilon_denominator_benchmark
+turnover_calc_benchmark [is.na(turnover_calc_benchmark)]=0
+turnover_calc_benchmark$turnover = (turnover_calc_benchmark$Weight - turnover_calc_benchmark$x_epsilon_benchmark) 
+turnover_calc_benchmark$turnover <- abs(turnover_calc_benchmark$turnover)
+turnover_pattern_benchmark <- aggregate(turnover~ym,data = turnover_calc_benchmark,FUN = sum)
+turnover_pattern_benchmark$turnover<- 0.5*turnover_pattern_benchmark$turnover
+summary(turnover_pattern_benchmark$turnover)
+benchmark.turnover<- mean(turnover_pattern_benchmark$turnover)
+#plot(x=turnover_pattern_benchmark$ym,y=turnover_pattern_benchmark$turnover)
 ```
 
 ## 6.4 Turnover
 ```{r}
-library(reshape)
-library(xts)
 
-# strategy turnover ----
-# get intermediate data frame
-turnover_calc <- strategy
 
-s_weights <- subset(turnover_calc,select= c("ym","Weight","Id"))
-s_weights <-reshape(s_weights, idvar = "ym", timevar = "Id", direction = "wide")
-s_weights <-as.xts(s_weights)
-s_weights[is.na(s_weights)]=0
 
-s_lead_weights <- as.data.frame(s_weights)
-s_lead_weights <-s_lead_weights %>% mutate_all(lead)
-as.data.frame(s_lead_weights)
-
-s_lead_weights<-as.data.frame(s_lead_weights)
-s_weights<-as.data.frame(s_weights)
-
-s_turnover_weights<-as.data.frame(txns <- s_lead_weights - s_weights) #s_tunover_weights - stuff inside the bracker in the fromula
-s_turnover_weights[is.na(s_turnover_weights)]=0
-s_turnover_pattern <- as.data.frame(rowSums(abs(s_turnover_weights[,1:length(s_turnover_weights)])),order.by=index(s_turnover_weights))
-colnames(s_turnover_pattern)[1] <- "one"
-
-s_turnover_pattern<-as.data.frame(s_turnover_pattern)
-strategy.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
-
-# benchmark turnover ----
-# get intermediate data frame
-turnover_calc <- BRIC.benchmark
-
-s_weights <- subset(turnover_calc,select= c("ym","ValueWeight","Id"))
-s_weights <-reshape(s_weights, idvar = "ym", timevar = "Id", direction = "wide")
-s_weights <-as.xts(s_weights)
-s_weights[is.na(s_weights)]=0
-
-s_lead_weights <- as.data.frame(s_weights)
-s_lead_weights <-s_lead_weights %>% mutate_all(lead)
-as.data.frame(s_lead_weights)
-
-s_lead_weights<-as.data.frame(s_lead_weights)
-s_weights<-as.data.frame(s_weights)
-
-s_turnover_weights<-as.data.frame(txns <- s_lead_weights - s_weights) #s_tunover_weights - stuff inside the bracker in the fromula
-s_turnover_weights[is.na(s_turnover_weights)]=0
-s_turnover_pattern <- as.data.frame(rowSums(abs(s_turnover_weights[,1:length(s_turnover_weights)])),order.by=index(s_turnover_weights))
-colnames(s_turnover_pattern)[1] <- "one"
-
-s_turnover_pattern<-as.data.frame(s_turnover_pattern)
-benchmark.turnover <- (sum(s_turnover_pattern$one) / (2*nrow(s_turnover_pattern)))
 ```
 ## 6.6 Saving Statistics into a single data frame
 ```{r}
