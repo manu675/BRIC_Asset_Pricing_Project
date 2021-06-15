@@ -156,6 +156,7 @@ BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,BRIC.monthly$lag11<=0,0)
 BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,BRIC.monthly$lag12<=0,0)
 
 # replacing NA's with 0
+BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,is.na(BRIC.monthly$lag1),0)
 BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,is.na(BRIC.monthly$lag2),0)
 BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,is.na(BRIC.monthly$lag3),0)
 BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,is.na(BRIC.monthly$lag4),0)
@@ -169,7 +170,7 @@ BRIC.monthly$lag11 <- replace(BRIC.monthly$lag11,is.na(BRIC.monthly$lag11),0)
 BRIC.monthly$lag12 <- replace(BRIC.monthly$lag12,is.na(BRIC.monthly$lag12),0)
 
 # positive values are replaced to 1
-BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1<=0,0)
+BRIC.monthly$lag1 <- replace(BRIC.monthly$lag1,BRIC.monthly$lag1>0,1)
 BRIC.monthly$lag2 <- replace(BRIC.monthly$lag2,BRIC.monthly$lag2>0,1)
 BRIC.monthly$lag3 <- replace(BRIC.monthly$lag3,BRIC.monthly$lag3>0,1)
 BRIC.monthly$lag4 <- replace(BRIC.monthly$lag4,BRIC.monthly$lag4>0,1)
@@ -187,6 +188,11 @@ BRIC.monthly$lagSum <- BRIC.monthly$lag2 + BRIC.monthly$lag3 + BRIC.monthly$lag4
 
 BRIC.monthly[ , pf.momentum := ifelse(lagSum>=8,"Winner",ifelse(lagSum < 8,"Looser",NA))]
 
+# custom momentum for robustness checks
+BRIC.monthly$customlagSum <- BRIC.monthly$lag1 + BRIC.monthly$lag2 + BRIC.monthly$lag3 + BRIC.monthly$lag4 + BRIC.monthly$lag5 + BRIC.monthly$lag6 + BRIC.monthly$lag7 + BRIC.monthly$lag8 + BRIC.monthly$lag9 + BRIC.monthly$lag10 + BRIC.monthly$lag11 + BRIC.monthly$lag12
+
+BRIC.monthly[ , pf.customMomentum := ifelse(customlagSum>=8,"Winner",ifelse(customlagSum < 8,"Looser",NA))]
+
 # group
 BRIC.monthly[,month := month(Date)]
 BRIC.monthly[,year := year(Date)]
@@ -201,13 +207,13 @@ intermediate <- subset(intermediate, select = c("Id","LMV.USD","hcjun"))
 colnames(intermediate)[2] <- "MV.USD.June"
 intermediate2 <- subset(intermediate2, select = c("Id","lagMV","hcjun"))
 colnames(intermediate2)[2] <- "MV.December"
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","RET","RET.USD","volatility","pf.momentum","pf.customMomentum","ym","hcjun","year","month"))
 
 # inner join automatically deletes values where MV.USD.June is not available
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate, by = c("Id","hcjun"))
 BRIC.monthly <- inner_join(x = BRIC.monthly,y = intermediate2, by = c("Id","hcjun"))
 # order BRIC.monthly
-BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","MV.December","RET","RET.USD","volatility","pf.momentum","ym","hcjun","year","month"))
+BRIC.monthly <- subset(BRIC.monthly, select = c("Id","country","Date","MV","MV.USD","LMV.USD","MV.USD.June","MV.December","RET","RET.USD","volatility","pf.momentum","pf.customMomentum","ym","hcjun","year","month"))
 
 # scaling
 BRIC.monthly$MV <- BRIC.monthly$MV * 1000000
@@ -654,12 +660,6 @@ factors <- subset(factors, select = c("ym","RMRF","SMB","HML","HML_DEVIL","RMW",
 #summary(factors)
 #summary(BRIC.maindata$BM)
 ```
-
-```{r}
-# regular correlation matrix of all (four) numeric attributes
-cor(select(BRIC.static, where(is.numeric)))
-```
-
 # 5 Strategy Sorting
 
 Momentum sorting is done during #2.
@@ -707,6 +707,8 @@ BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
 
 # filtering for winner stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.momentum  == "Winner" )
+# custom momentum
+#BRIC.strategy <- subset(BRIC.strategy, pf.customMomentum == "Winner" )
 
 # assign new variable
 strategy <- BRIC.strategy
