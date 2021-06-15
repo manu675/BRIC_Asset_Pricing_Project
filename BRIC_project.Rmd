@@ -1005,22 +1005,8 @@ summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CM
 
 ```
 # 8 Plots and Visualisation
-List of plots:
-1) Cummulative performance Benchmark vs Strategy BRIC // VINIT/MANU revisit
-2) Single factors vs multifactor portfolio in risk-return space // MANU revisit
-3) Evolution of MarketCap weights per country --> regional weighting (implicit) // ?? // use GDP plot code and update it 
-
-List of tables:
-1) Performance and risk // MANU revisit --> JOHANNES gives the data
-2) Investability // MANU revisit
-3) Spanning tests_Style exposure //
-
-Table/Plot:
-1) Strategy BRIC vs Countries stand alone // JOHANNES ## Tables done
-2) Strategy parts stand alone and/or 2 combined vs 3ple sort // Johannes ## Tables done
-
+## 8.0 Loading data
 ```{r}
-# load stats data ----
 load("statistics/differentStrategies_all.RData")
 load("statistics/differentStrategies_BRIC.RData")
 load("statistics/differentStrategies_CHN.RData")
@@ -1080,118 +1066,7 @@ strategy_vs_bm_returns
 # second part of the code that creates the jpeg file of the plot
 dev.off()
 ```
-
-## 8.2 Factor Returns
-```{r}
-# factor return plots
-library(ggplot2)
-
-cma.zoo <- zoo(factors$CMA) # zoo object
-
-factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
-
-hml.zoo <- zoo(factors$HML)
-
-factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
-
-rmw.zoo <- zoo(factors$RMW)
-
-factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
-
-smb.zoo <- zoo(factors$SMB)
-
-factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
-
-hml_devil.zoo <- zoo(factors$HML_DEVIL)
-
-factors$hml_devil.cum_ret = cumsum(log(1+hml_devil.zoo/100))
-
-rmrf.zoo <- zoo(factors$RMRF)
-
-factors$rmrf.cum_ret = cumsum(log(1+rmrf.zoo/100))
-
-
-
-# creating a dataframe for plotting the cummulative returns
-df_new <- data.frame(cma.cret = as.vector(factors$cma.cum_ret),
-                     rmrf.cret = as.vector(factors$rmrf.cum_ret),
-                     smb.cret = as.vector(factors$smb.cum_ret),
-                     hml.cret = as.vector(factors$hml.cum_ret),
-                     hml_devil.cret = as.vector(factors$hml_devil.cum_ret),
-                     rmw.cret = as.vector(factors$rmw.cum_ret),
-                     time = as.Date(factors$ym))
-
-# plot of the factor returns (log scale)
-cum_rets <- ggplot(data = df_new, aes(x = time))   +
-   geom_line(aes(y = rmrf.cret, colour="rmrf.cret")) +
-  geom_line(aes(y = smb.cret, colour="smb.cret")) + 
-  geom_line(aes(y = hml.cret, colour="hml.cret")) +
-  geom_line(aes(y = hml_devil.cret, colour="hml_devil.cret")) +
-  geom_line(aes(y = rmw.cret, colour="rmw.cret")) + 
-  geom_line(aes(y = cma.cret, colour="cma.cret")) + 
-  labs(y= "cum. log return", x = "Year", title ="Monthly cum. factor log returns") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Factor", 
-                      breaks = c("rmrf.cret","smb.cret", "hml.cret","hml_devil.cret", "rmw.cret", "cma.cret"),
-                      values = c("black","red", "green","yellow", "blue","orange"))
-  
-cum_rets
- 
-
-# factor returns (regular scale)
-factor_returns <- ggplot(data = factors, aes(x = ym)) + 
-  geom_line(aes(y = RMRF, colour="RMRF")) +
-  geom_line(aes(y = SMB, colour="SMB")) + 
-  geom_line(aes(y = HML, colour="HML")) + 
-  geom_line(aes(y = HML_DEVIL, colour="HML_DEVIL")) +
-  geom_line(aes(y = RMW, colour="RMW")) + 
-  geom_line(aes(y = CMA, colour="CMA")) + 
-  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Country weight", 
-                      breaks = c("RMRF","SMB", "HML","HML_DEVIL", "RMW", "CMA"),
-                      values = c("black","red", "green","yellow", "blue","orange"))
-  
-factor_returns
-
-
-
-```
-
-## 8.3 Strategy Comparison (3factor, 2factor, 1factor)
-```{r}
-
-rownames(differentStrategies.BRIC) <- c("Benchmark", "3F","V", "GLV","GMOM","LVMOM","G","LV","MOM")
-
-
-# transforming the index of the df into a column
-factor_plot_df <- setDT(differentStrategies.BRIC, keep.rownames = TRUE)
-
-# dropping an unnecessary row
-factor_plot_df <- factor_plot_df[-3,]
-
-
-# renaming the 1st column
-colnames(factor_plot_df)[1] <-  "Strategies"
-
-# saving the plot as a jpeg file
-jpeg("risk_return_factors.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
-# Zooming in with xlim/ylim
-plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, color= Strategies)) +
-  geom_point(size = 3, alpha = 0.9, shape = 20) +
-  geom_text(color= "black", aes(label=Strategies,label=""),show_guide=F,hjust=0.6,vjust=-0.5) +
-  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title  
-theme(plot.title = element_text(face="bold", hjust=0.5)) +
- scale_color_discrete(name = "Strategies", labels = c("3 Factor", "Benchmark", "Growth", "Growth_LowVol", "Growth_Momentum","LowVol","LowVolMomentum","Momentum"))
-
-
-plot_combinations
-
-# second part of the code that creates the jpeg file of the plot
-dev.off()
-
-```
-## 8.4 Evolution of MarketCap Weights
+## 8.2 Evolution of MarketCap Weights
 ```{r}
 # 8.4.1 STRATEGY ----
 
@@ -1279,65 +1154,121 @@ overview_benchmark <- ggplot(data = evolution, aes(x = ym)) +
 # second part of the code that creates the jpeg file of the plot
 dev.off()
 
-# 8.4.3 GDP evolution as comparison ----
-# load data sheet from French's website
-GDPData <- read_csv("GDP_raw_data.csv", 
-     skip = 3)
-
-# rename column
-colnames(GDPData)[2] <- "CountryCode"
-
-# filter on BRIC countries
-GDPData <- GDPData %>% filter(CountryCode == "IND" | CountryCode == "CHN" | CountryCode == "BRA" | CountryCode == "RUS")
-
-# transpose data frame and keep row names
-GDPData <- as.data.frame(t(GDPData))
-setDT(GDPData, keep.rownames = TRUE)[]
-
-colnames(GDPData)[1] <- "year"
-colnames(GDPData)[2] <- "BRA"
-colnames(GDPData)[3] <- "CHN"
-colnames(GDPData)[4] <- "IND"
-colnames(GDPData)[5] <- "RUS"
-
-# shorting data frame
-GDPData <- GDPData %>% filter(year >= 1994 & year < 2020 )
-
-class(GDPData$BRA)
-
-# convert factor type objects to numeric objects
-GDPData$BRA <- as.numeric(as.character(GDPData$BRA))
-GDPData$CHN <- as.numeric(as.character(GDPData$CHN))
-GDPData$IND <- as.numeric(as.character(GDPData$IND))
-GDPData$RUS <- as.numeric(as.character(GDPData$RUS))
-GDPData$year <- as.numeric(as.character(GDPData$year))
-
-# get the sum of all GDPs
-GDPData$SumOfGDP <- GDPData$BRA + GDPData$CHN + GDPData$IND + GDPData$RUS
-
-# get % of total GDP per country
-GDPData$BRA_w <- GDPData$BRA/GDPData$SumOfGDP
-GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
-GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
-GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
-
-# plot of GDP weights over time
-overview_gdp <- ggplot(data = GDPData, aes(x = year)) + 
-  geom_line(aes(y = BRA_w, colour="BRA_w")) + 
-  geom_line(aes(y = CHN_w, colour="CHN_w")) + 
-  geom_line(aes(y = IND_w, colour="IND_w")) + 
-  geom_line(aes(y = RUS_w, colour="RUS_w")) + 
-  labs(y= "country weight", x = "Year", title ="GDP weights by country") + # x and y axis lables and plot title
-  theme(plot.title = element_text(face="bold", hjust=0.5)) +
-  scale_colour_manual(name="Country weight", 
-                      breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
-                      values = c("red", "green", "blue","orange"))
-
 overview_strategy
 overview_benchmark
-overview_gdp
 ```
-# 9.1 Other statistics
+## 8.3 Factor Returns
+```{r}
+# factor return plots
+library(ggplot2)
+
+cma.zoo <- zoo(factors$CMA) # zoo object
+
+factors$cma.cum_ret = cumsum(log(1+cma.zoo/100)) # cum log returns
+
+hml.zoo <- zoo(factors$HML)
+
+factors$hml.cum_ret = cumsum(log(1+hml.zoo/100))
+
+rmw.zoo <- zoo(factors$RMW)
+
+factors$rmw.cum_ret = cumsum(log(1+rmw.zoo/100))
+
+smb.zoo <- zoo(factors$SMB)
+
+factors$smb.cum_ret = cumsum(log(1+smb.zoo/100))
+
+hml_devil.zoo <- zoo(factors$HML_DEVIL)
+
+factors$hml_devil.cum_ret = cumsum(log(1+hml_devil.zoo/100))
+
+rmrf.zoo <- zoo(factors$RMRF)
+
+factors$rmrf.cum_ret = cumsum(log(1+rmrf.zoo/100))
+
+
+
+# creating a dataframe for plotting the cummulative returns
+df_new <- data.frame(cma.cret = as.vector(factors$cma.cum_ret),
+                     rmrf.cret = as.vector(factors$rmrf.cum_ret),
+                     smb.cret = as.vector(factors$smb.cum_ret),
+                     hml.cret = as.vector(factors$hml.cum_ret),
+                     hml_devil.cret = as.vector(factors$hml_devil.cum_ret),
+                     rmw.cret = as.vector(factors$rmw.cum_ret),
+                     time = as.Date(factors$ym))
+
+# plot of the factor returns (log scale)
+cum_rets <- ggplot(data = df_new, aes(x = time))   +
+   geom_line(aes(y = rmrf.cret, colour="rmrf.cret")) +
+  geom_line(aes(y = smb.cret, colour="smb.cret")) + 
+  geom_line(aes(y = hml.cret, colour="hml.cret")) +
+  geom_line(aes(y = hml_devil.cret, colour="hml_devil.cret")) +
+  geom_line(aes(y = rmw.cret, colour="rmw.cret")) + 
+  geom_line(aes(y = cma.cret, colour="cma.cret")) + 
+  labs(y= "cum. log return", x = "Year", title ="Monthly cum. factor log returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Factor", 
+                      breaks = c("rmrf.cret","smb.cret", "hml.cret","hml_devil.cret", "rmw.cret", "cma.cret"),
+                      values = c("black","red", "green","yellow", "blue","orange"))
+  
+cum_rets
+ 
+
+# factor returns (regular scale)
+factor_returns <- ggplot(data = factors, aes(x = ym)) + 
+  geom_line(aes(y = RMRF, colour="RMRF")) +
+  geom_line(aes(y = SMB, colour="SMB")) + 
+  geom_line(aes(y = HML, colour="HML")) + 
+  geom_line(aes(y = HML_DEVIL, colour="HML_DEVIL")) +
+  geom_line(aes(y = RMW, colour="RMW")) + 
+  geom_line(aes(y = CMA, colour="CMA")) + 
+  labs(y= "country weight", x = "Year", title ="Monthly factor returns") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("RMRF","SMB", "HML","HML_DEVIL", "RMW", "CMA"),
+                      values = c("black","red", "green","yellow", "blue","orange"))
+  
+factor_returns
+
+
+
+```
+
+## 8.4 Strategy Comparison (3factor, 2factor, 1factor)
+```{r}
+
+rownames(differentStrategies.BRIC) <- c("Benchmark", "3F","V", "GLV","GMOM","LVMOM","G","LV","MOM")
+
+
+# transforming the index of the df into a column
+factor_plot_df <- setDT(differentStrategies.BRIC, keep.rownames = TRUE)
+
+# dropping an unnecessary row
+factor_plot_df <- factor_plot_df[-3,]
+
+
+# renaming the 1st column
+colnames(factor_plot_df)[1] <-  "Strategies"
+
+# saving the plot as a jpeg file
+jpeg("risk_return_factors.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
+# Zooming in with xlim/ylim
+plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, color= Strategies)) +
+  geom_point(size = 3, alpha = 0.9, shape = 20) +
+  geom_text(color= "black", aes(label=Strategies,label=""),show_guide=F,hjust=0.6,vjust=-0.5) +
+  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title  
+theme(plot.title = element_text(face="bold", hjust=0.5)) +
+ scale_color_discrete(name = "Strategies", labels = c("3 Factor", "Benchmark", "Growth", "Growth_LowVol", "Growth_Momentum","LowVol","LowVolMomentum","Momentum"))
+
+
+plot_combinations
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
+
+```
+
+# 9 Descriptive Statistics
 ```{r}
 deStats <- BRIC.maindata
 deStats <- subset(deStats, pf.size == "Big" )
@@ -1396,8 +1327,9 @@ descriptive_statistics <- as.data.frame(descriptive_statistics)
 library("writexl")
 save(descriptive_statistics,file = "descriptive_statistics.RData")
 write_xlsx(descriptive_statistics,"descriptive_statistics.xlsx")
+
 ```
-### 6.1 (ALTERNATIVE) Equal weights 
+# 6.1 (ALTERNATIVE) Equal weights 
 // rarely used... don't run value weights part in 6 when running this!!
 // Every stock has the same weight within a ym
 ```{r}
@@ -1425,7 +1357,7 @@ strategy.topTenBricT <- mean(strategy.EqualWeights$weight)
 
 
 
-# A.1
+# A.1 Crazy combination
 ```{r}
 # crazy combination trial
 ##5.1 Value Breakpoints
@@ -1495,4 +1427,63 @@ dim(BRIC.strategy)
 
 summary(BRIC.strategy)
 ```
+# A.2 GDP Evolution
+```{r}
+# load data sheet from French's website
+GDPData <- read_csv("GDP_raw_data.csv", 
+     skip = 3)
+
+# rename column
+colnames(GDPData)[2] <- "CountryCode"
+
+# filter on BRIC countries
+GDPData <- GDPData %>% filter(CountryCode == "IND" | CountryCode == "CHN" | CountryCode == "BRA" | CountryCode == "RUS")
+
+# transpose data frame and keep row names
+GDPData <- as.data.frame(t(GDPData))
+setDT(GDPData, keep.rownames = TRUE)[]
+
+colnames(GDPData)[1] <- "year"
+colnames(GDPData)[2] <- "BRA"
+colnames(GDPData)[3] <- "CHN"
+colnames(GDPData)[4] <- "IND"
+colnames(GDPData)[5] <- "RUS"
+
+# shorting data frame
+GDPData <- GDPData %>% filter(year >= 1994 & year < 2020 )
+
+class(GDPData$BRA)
+
+# convert factor type objects to numeric objects
+GDPData$BRA <- as.numeric(as.character(GDPData$BRA))
+GDPData$CHN <- as.numeric(as.character(GDPData$CHN))
+GDPData$IND <- as.numeric(as.character(GDPData$IND))
+GDPData$RUS <- as.numeric(as.character(GDPData$RUS))
+GDPData$year <- as.numeric(as.character(GDPData$year))
+
+# get the sum of all GDPs
+GDPData$SumOfGDP <- GDPData$BRA + GDPData$CHN + GDPData$IND + GDPData$RUS
+
+# get % of total GDP per country
+GDPData$BRA_w <- GDPData$BRA/GDPData$SumOfGDP
+GDPData$CHN_w <- GDPData$CHN/GDPData$SumOfGDP
+GDPData$IND_w <- GDPData$IND/GDPData$SumOfGDP
+GDPData$RUS_w <- GDPData$RUS/GDPData$SumOfGDP
+
+# plot of GDP weights over time
+overview_gdp <- ggplot(data = GDPData, aes(x = year)) + 
+  geom_line(aes(y = BRA_w, colour="BRA_w")) + 
+  geom_line(aes(y = CHN_w, colour="CHN_w")) + 
+  geom_line(aes(y = IND_w, colour="IND_w")) + 
+  geom_line(aes(y = RUS_w, colour="RUS_w")) + 
+  labs(y= "country weight", x = "Year", title ="GDP weights by country") + # x and y axis lables and plot title
+  theme(plot.title = element_text(face="bold", hjust=0.5)) +
+  scale_colour_manual(name="Country weight", 
+                      breaks = c("BRA_w", "CHN_w", "IND_w", "RUS_w"),
+                      values = c("red", "green", "blue","orange"))
+overview_gdp
+```
+
+
+
 ```
