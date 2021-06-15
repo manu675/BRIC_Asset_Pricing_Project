@@ -699,8 +699,8 @@ BRIC.strategy[ , pf.low_vol := ifelse(volatility>lower_20,"HighVol",(ifelse(vola
 # 5.3 Filtering ----
 
 # filtering for growth or value stocks PLEASE COMMENT OUT and DECOMMENT OUT respectively
-#BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
-BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
+BRIC.strategy <- subset(BRIC.strategy, pf.value == "Value" )
+#BRIC.strategy <- subset(BRIC.strategy, pf.growth == "Growth" )
 
 # filtering for lowVol stocks
 BRIC.strategy <- subset(BRIC.strategy, pf.low_vol == "LowVol" )
@@ -1054,7 +1054,7 @@ jpeg("strategy_vs_bm_plot.jpeg", width = 480, height = 480) # height and width c
 strategy_vs_bm_returns <- ggplot(data = bm_plot_df, aes(x = ym)) + 
   geom_line(aes(y = bm.cum_ret, colour="bm.cum_ret")) + 
   geom_line(aes(y = strat.cum_ret, colour="strat.cum_ret")) + 
-  labs(y= "Cum. Log Returns", x = "Year", title ="Monthly Cum. Log Returns: 3FStrategy : 1-month growth vs Benchmark") + # x and y axis lables and plot title
+  labs(y= "Cum. Log Returns", x = "Year", title ="Monthly Cum. Log Returns: 3FStrategy : [insert strategy] vs Benchmark") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Portfolio", 
                       breaks = c("bm.cum_ret", "strat.cum_ret"),
@@ -1067,8 +1067,9 @@ strategy_vs_bm_returns
 dev.off()
 ```
 ## 8.2 Evolution of MarketCap Weights
+
 ```{r}
-# 8.4.1 STRATEGY ----
+# 8.2.1 STRATEGY ----
 
 # create a balanced panel
 ym <- seq(as.yearmon('1996-07-01'), as.yearmon('2018-10-31'), by = 0.083333333333333333333333333)
@@ -1102,7 +1103,7 @@ overview_strategy <- ggplot(data = evolution, aes(x = ym)) +
   geom_line(aes(y = CHN, colour="CHN")) + 
   geom_line(aes(y = IND, colour="IND")) + 
   geom_line(aes(y = RUS, colour="RUS")) + 
-  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the 3FStrategy : 1-month growth") + # x and y axis lables and plot title
+  labs(y= "country weight", x = "ym", title ="Country Weights by Value in the 3FStrategy : [insert strategy]") + # x and y axis lables and plot title
   theme(plot.title = element_text(face="bold", hjust=0.5)) +
   scale_colour_manual(name="Country weight", 
                       breaks = c("BRA", "CHN", "IND", "RUS"),
@@ -1111,7 +1112,7 @@ overview_strategy <- ggplot(data = evolution, aes(x = ym)) +
 # second part of the code that creates the jpeg file of the plot
 dev.off()
 
-# 8.4.2 BENCHMARK ----
+# 8.2.2 BENCHMARK ----
 
 # create a balanced panel
 ym <- seq(as.yearmon('1996-07-01'), as.yearmon('2018-10-31'), by = 0.083333333333333333333333333)
@@ -1154,8 +1155,9 @@ overview_benchmark <- ggplot(data = evolution, aes(x = ym)) +
 # second part of the code that creates the jpeg file of the plot
 dev.off()
 
-overview_strategy
 overview_benchmark
+overview_strategy
+strategy_vs_bm_returns
 ```
 ## 8.3 Factor Returns
 ```{r}
