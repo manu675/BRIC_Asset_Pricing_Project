@@ -1032,17 +1032,47 @@ dim(spanning) # 280 (24 years * 12 months) x 5
 summary(spanning) # to use for a table
 
 # Spanning Tests ----
-## FF3FM
-summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML))
+ff3fm <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML)
+
+summary(ff3fm)
 
 ## FF5FM
-summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CMA + RMW))
+ff5fm <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + CMA + RMW)
+
+summary(ff5fm)
 
 ## FF3FM + MOM
-summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + MOM))
+ff3fm_mom <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + MOM)
+
+summary(ff3fm_mom)
 
 ## FF5FM + MOM
-summary(lm(data=spanning, formula = Strategy_RiRF ~ Market_RiRF + SMB + HML + CMA + RMW + MOM))
+ff5fm_mom <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + CMA + RMW + MOM)
+
+summary(ff5fm_mom)
+
+# exporting the regression to tex
+library(texreg)
+
+texreg(list(ff3fm,ff3fm_mom,ff5fm, ff5fm_mom), booktabs = T, fontsize="small", custom.model.names = c("FF3FM","FF3FM + Mom", "FF5FM", "FF5FM + Mom"))
+
+
+# correlation matrix between factors for the BRIC region
+cor_mat <- cor(spanning[,c("SMB","HML","CMA","RMW","MOM")])
+
+#Returns a matrix of logicals the same size of a given matrix with entries TRUE in the lower triangle.
+upper.tri(x=cor_mat, diag = TRUE)
+
+# Hide upper triangle
+upper <- cor_mat
+upper[upper.tri(cor_mat)]<-""
+upper <- as.data.frame(upper)
+upper
+
+# exporting the correlation table to tex
+library(xtable)
+
+xtable(upper)
 
 
 ```
