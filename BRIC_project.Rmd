@@ -901,9 +901,6 @@ colnames(strat.EqualWeights)[2] <- "NumberOfStocks"
 # average number of stocks
 strategy.avgNumberOfStocks <- sum(strat.EqualWeights$NumberOfStocks)/length(strat.EqualWeights$NumberOfStocks)
 
-```
-## dont't run // connect again
-```{r}
 # 6.3 Benchmark statistics ----
 
 # mean return of whole period
@@ -1010,70 +1007,6 @@ colnames(bench.EqualWeights)[2] <- "NumberOfStocks"
 # average number of stocks
 benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(bench.EqualWeights$NumberOfStocks)
 
-
-```
-## 6.4 Saving Statistics into a single data frame
-```{r}
-MOC_GRO_VOL_BRIC_q <- c(strategy.retBricT,strategy.retExBricT,strategy.sdBricT,strategy.srBricT,strategy.mdBricT,strategy.teBricT,strategy.irBricT, strategy.avgNumberOfStocks, strategy.topTenBricT, strategy.turnover,strategy.effectiveNT)
-
-eval_BRIC_Benchmark <- c(benchmark.retBricT,benchmark.retExBricT,benchmark.sdBricT,benchmark.srBricT,benchmark.mdBricT,benchmark.teBricT,benchmark.irBricT, benchmark.avgNumberOfStocks, benchmark.topTenBricT, benchmark.turnover,benchmark.effectiveNT)
-```
-
-```{r}
-# Big datasheet for all runs
-allStrategies <- rbind(eval_BRIC_Benchmark,MOM_BRIC_m,MOC_BRIC_m,VAL_BRIC_m,GRO_BRIC_m,VOL_BRIC_m,MOM_VAL_BRIC_m,MOM_GRO_BRIC_m,MOM_VOL_BRIC_m,MOC_VAL_BRIC_m,MOC_GRO_BRIC_m,MOC_VOL_BRIC_m,VAL_VOL_BRIC_m,GRO_VOL_BRIC_m,MOM_VAL_VOL_BRIC_m,MOM_GRO_VOL_BRIC_m,MOC_VAL_VOL_BRIC_m,MOC_GRO_VOL_BRIC_m,MOM_BRIC_q,MOC_BRIC_q,VAL_BRIC_q,GRO_BRIC_q,VOL_BRIC_q,MOM_VAL_BRIC_q,MOM_GRO_BRIC_q,MOM_VOL_BRIC_q,MOC_VAL_BRIC_q,MOC_GRO_BRIC_q,MOC_VOL_BRIC_q,VAL_VOL_BRIC_q,GRO_VOL_BRIC_q,MOM_VAL_VOL_BRIC_q,MOM_GRO_VOL_BRIC_q,MOC_VAL_VOL_BRIC_q,MOC_GRO_VOL_BRIC_q)
-#1-month rebalancing
-MOM_BRIC_m #done
-MOC_BRIC_m #done
-VAL_BRIC_m #done
-GRO_BRIC_m #done
-VOL_BRIC_m #done
-MOM_VAL_BRIC_m # done
-MOM_GRO_BRIC_m # done
-MOM_VOL_BRIC_m #done
-MOC_VAL_BRIC_m # done
-MOC_GRO_BRIC_m # done
-MOC_VOL_BRIC_m #done
-VAL_VOL_BRIC_m # done
-GRO_VOL_BRIC_m # done
-MOM_VAL_VOL_BRIC_m # done
-MOM_GRO_VOL_BRIC_m # done
-MOC_VAL_VOL_BRIC_m # done
-MOC_GRO_VOL_BRIC_m # done
-
-# 3-month rebalancing
-MOM_BRIC_q #done
-MOC_BRIC_q #done
-VAL_BRIC_q #done
-GRO_BRIC_q #done
-VOL_BRIC_q #done
-MOM_VAL_BRIC_q # done
-MOM_GRO_BRIC_q # done
-MOM_VOL_BRIC_q #done
-MOC_VAL_BRIC_q # done
-MOC_GRO_BRIC_q # done
-MOC_VOL_BRIC_q #done
-VAL_VOL_BRIC_q # done
-GRO_VOL_BRIC_q # done
-MOM_VAL_VOL_BRIC_q # done
-MOM_GRO_VOL_BRIC_q # done
-MOC_VAL_VOL_BRIC_q # done
-MOC_GRO_VOL_BRIC_q # done
-
-allStrategies <- as.data.frame(allStrategies)
-colnames(allStrategies)[1] <- "Return"
-colnames(allStrategies)[2] <- "ExcessReturn"
-colnames(allStrategies)[3] <- "StandardDeviation"
-colnames(allStrategies)[4] <- "SharpRatio"
-colnames(allStrategies)[5] <- "MaximumDrawdown"
-colnames(allStrategies)[6] <- "TrackingError"
-colnames(allStrategies)[7] <- "InformationRatio"
-colnames(allStrategies)[8] <- "Avg.NumberOfStocks"
-colnames(allStrategies)[9] <- "top10"
-colnames(allStrategies)[10] <- "Turnover"
-colnames(allStrategies)[11] <- "EffectiveN"
-
-save()
 
 ```
 
