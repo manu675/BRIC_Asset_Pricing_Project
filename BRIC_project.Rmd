@@ -1013,13 +1013,12 @@ benchmark.avgNumberOfStocks <- sum(bench.EqualWeights$NumberOfStocks)/length(ben
 # 7 Spanning tests (factor exposure)
 
 ```{r}
+```{r}
 # join factors, strategy and benchmark ----
-spanning_1 <- left_join(x = factors, y = strategy.retBricM, by = "ym")
-spanning <- left_join(x = spanning_1, y = market.retBricM, by = "ym")
+spanning <- left_join(x = factors, y = strategy.retBricM, by = "ym")
 colnames(spanning)[10] <- "Strategy_RET"
 colnames(spanning)[11] <- "Strategy_RiRF"
-colnames(spanning)[13] <- "Market_RET"
-colnames(spanning)[14] <- "Market_RiRF"
+
 
 # correlation matrix between factors
 
@@ -1031,34 +1030,41 @@ dim(spanning) # 280 (24 years * 12 months) x 5
 
 summary(spanning) # to use for a table
 
+xtable(summary(spanning))
+
 # Spanning Tests ----
-ff3fm <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML)
+ff3fm <- lm(data=spanning, formula = Strategy_RET ~ RMRF + SMB + HML)
 
 summary(ff3fm)
 
 ## FF5FM
-ff5fm <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + CMA + RMW)
+ff5fm <- lm(data=spanning, formula = Strategy_RET ~ RMRF + SMB + HML + CMA + RMW)
 
 summary(ff5fm)
 
 ## FF3FM + MOM
-ff3fm_mom <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + MOM)
+ff3fm_mom <- lm(data=spanning, formula = Strategy_RET ~ RMRF + SMB + HML + MOM)
 
 summary(ff3fm_mom)
 
 ## FF5FM + MOM
-ff5fm_mom <- lm(data=spanning, formula = Strategy_RET ~ Market_RiRF + SMB + HML + CMA + RMW + MOM)
+ff5fm_mom <- lm(data=spanning, formula = Strategy_RET ~ RMRF + SMB + HML + CMA + RMW + MOM)
 
 summary(ff5fm_mom)
+
+## FF5FM + MOM with HML_DEVIL
+ff5fm_mom_hmldevil <- lm(data=spanning, formula = Strategy_RET ~ RMRF + SMB + HML_DEVIL + CMA + RMW + MOM)
+
+summary(ff5fm_mom_hmldevil)
 
 # exporting the regression to tex
 library(texreg)
 
-texreg(list(ff3fm,ff3fm_mom,ff5fm, ff5fm_mom), booktabs = T, fontsize="small", custom.model.names = c("FF3FM","FF3FM + Mom", "FF5FM", "FF5FM + Mom"))
+texreg(list(ff3fm,ff3fm_mom,ff5fm, ff5fm_mom,ff5fm_mom_hmldevil), booktabs = T, fontsize="small", custom.model.names = c("FF3FM","FF3FM + Mom", "FF5FM", "FF5FM + Mom","FF5FM(HML_DEV) + MOM"))
 
 
 # correlation matrix between factors for the BRIC region
-cor_mat <- cor(spanning[,c("SMB","HML","CMA","RMW","MOM")])
+cor_mat <- cor(spanning[,c("RMRF","SMB","HML","HML_DEVIL","CMA","RMW","MOM")])
 
 #Returns a matrix of logicals the same size of a given matrix with entries TRUE in the lower triangle.
 upper.tri(x=cor_mat, diag = TRUE)
@@ -1071,10 +1077,8 @@ upper
 
 # exporting the correlation table to tex
 library(xtable)
-
 xtable(upper)
-
-
+```
 ```
 # 8 Plots and Visualisation
 ## 8.0 Loading data
