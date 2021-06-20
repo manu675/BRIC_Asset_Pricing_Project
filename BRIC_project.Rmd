@@ -1203,8 +1203,10 @@ factor_returns
 
 ## 7.4 Strategy Comparison (3factor, 2factor, 1factor)
 ```{r}
+# monthly
 # load datasheet
 load("allStrategies.RData")
+quarterly <- allStrategies
 
 # subset on most important strategies
 allStrategies <- allStrategies[1:18,]
@@ -1221,6 +1223,30 @@ plot_combinations <- ggplot(data = allStrategies, aes(x = StandardDeviation, y =
 theme(plot.title = element_text(face="bold", hjust=0.5)) + theme(legend.position="none") # remove legend
 
 plot_combinations
+
+# second part of the code that creates the jpeg file of the plot
+dev.off()
+
+#quarterly
+
+# subset on most important strategies
+quq <- quarterly
+quarterly <- quarterly[1:1,]
+quq <- quq[19:35,]
+quarterly <- rbind(quarterly,quq)
+quarterly$Strategy <- c("Benchmark","MOM","MOC","VAL","GRO","VOL","MOM_VAL","MOM_GRO","MOM_VOL","MOC_VAL","MOC_GRO","MOC_VOL","VAL_VOL","GRO_VOL","MOM_VAL_VOL","MOM_GRO_VOL","MOC_VAL_VOL","MOC_GRO_VOL")
+
+
+# saving the plot as a jpeg file
+jpeg("risk_return_factors_quarterly.jpeg", width = 800, height = 600) # height and width can be chosen as your wish 
+# Zooming in with xlim/ylim
+plot_comb <- ggplot(data = quarterly, aes(x = StandardDeviation, y = Return, color= Strategy)) +
+  geom_point(size = 3, alpha = 0.9, shape = 20) +
+  geom_text(color= "black", aes(label=Strategy,label=""),show_guide=F,hjust="inward",vjust="inward") +
+  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations (quarterly rebalancing)") + # x and y axis lables and plot title  
+theme(plot.title = element_text(face="bold", hjust=0.5)) + theme(legend.position="none") # remove legend
+
+plot_comb
 
 # second part of the code that creates the jpeg file of the plot
 dev.off()
