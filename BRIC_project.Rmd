@@ -1203,29 +1203,22 @@ factor_returns
 
 ## 7.4 Strategy Comparison (3factor, 2factor, 1factor)
 ```{r}
+# load datasheet
+load("allStrategies.RData")
 
-rownames(differentStrategies.BRIC) <- c("Benchmark", "3F","V", "GLV","GMOM","LVMOM","G","LV","MOM")
+# subset on most important strategies
+allStrategies <- allStrategies[1:18,]
+allStrategies$Strategy <- c("Benchmark","MOM","MOC","VAL","GRO","VOL","MOM_VAL","MOM_GRO","MOM_VOL","MOC_VAL","MOC_GRO","MOC_VOL","VAL_VOL","GRO_VOL","MOM_VAL_VOL","MOM_GRO_VOL","MOC_VAL_VOL","MOC_GRO_VOL")
 
-
-# transforming the index of the df into a column
-factor_plot_df <- setDT(differentStrategies.BRIC, keep.rownames = TRUE)
-
-# dropping an unnecessary row
-factor_plot_df <- factor_plot_df[-3,]
-
-
-# renaming the 1st column
-colnames(factor_plot_df)[1] <-  "Strategies"
 
 # saving the plot as a jpeg file
-jpeg("risk_return_factors.jpeg", width = 480, height = 480) # height and width can be chosen as your wish 
+jpeg("risk_return_factors.jpeg", width = 800, height = 600) # height and width can be chosen as your wish 
 # Zooming in with xlim/ylim
-plot_combinations <- ggplot(data = factor_plot_df, aes(x = Volatility, y = Return, color= Strategies)) +
+plot_combinations <- ggplot(data = allStrategies, aes(x = StandardDeviation, y = Return, color= Strategy)) +
   geom_point(size = 3, alpha = 0.9, shape = 20) +
-  geom_text(color= "black", aes(label=Strategies,label=""),show_guide=F,hjust=0.6,vjust=-0.5) +
-  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations") + # x and y axis lables and plot title  
-theme(plot.title = element_text(face="bold", hjust=0.5)) +
- scale_color_discrete(name = "Strategies", labels = c("3 Factor", "Benchmark", "Growth", "Growth_LowVol", "Growth_Momentum","LowVol","LowVolMomentum","Momentum"))
+  geom_text(color= "black", aes(label=Strategy,label=""),show_guide=F,hjust="inward",vjust="inward") +
+  labs(y= "Strategy Return (in % p.a.)", x = "Volatility (SD in % p.a.)", title ="Risk-return space of factor combinations (monthly rebalancing)") + # x and y axis lables and plot title  
+theme(plot.title = element_text(face="bold", hjust=0.5)) + theme(legend.position="none") # remove legend
 
 plot_combinations
 
